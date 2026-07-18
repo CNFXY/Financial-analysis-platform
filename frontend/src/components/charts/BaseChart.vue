@@ -83,7 +83,11 @@ watch(
 // 加载状态
 watch(() => props.loading, (loading) => {
   if (chartInstance) {
-    loading ? chartInstance.showLoading() : chartInstance.hideLoading()
+    if (loading) {
+      chartInstance.showLoading()
+    } else {
+      chartInstance.hideLoading()
+    }
   }
 })
 

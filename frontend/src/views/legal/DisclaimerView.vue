@@ -3,7 +3,10 @@ import LegalPage from '@/components/legal/LegalPage.vue'
 </script>
 
 <template>
-  <LegalPage title="免责声明" updated="2026-07-18">
+  <LegalPage
+    title="免责声明"
+    updated="2026-07-18"
+  >
     <p>欢迎使用 FUND-OS 智能基金估算系统（以下简称"本系统"）。在使用本系统的全部功能与服务前，请您仔细阅读本免责声明。一旦访问或使用本系统，即视为您已充分理解并同意本声明的全部内容。</p>
 
     <h2>一、信息性质与风险提示</h2>
@@ -29,6 +32,8 @@ import LegalPage from '@/components/legal/LegalPage.vue'
     <h2>六、声明的变更</h2>
     <p>我们可能适时更新本免责声明。更新后的内容将在本页面发布，继续使用本系统即视为接受变更后的声明。</p>
 
-    <p class="mt-6 text-sm text-gray-500">如您对本声明有任何疑问，可通过本系统公示的联系方式与我们沟通。</p>
+    <p class="mt-6 text-sm text-gray-500">
+      如您对本声明有任何疑问，可通过本系统公示的联系方式与我们沟通。
+    </p>
   </LegalPage>
 </template>

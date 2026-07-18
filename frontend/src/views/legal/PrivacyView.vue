@@ -3,7 +3,10 @@ import LegalPage from '@/components/legal/LegalPage.vue'
 </script>
 
 <template>
-  <LegalPage title="隐私政策" updated="2026-07-18">
+  <LegalPage
+    title="隐私政策"
+    updated="2026-07-18"
+  >
     <p>本隐私政策说明 FUND-OS 智能基金估算系统（以下简称"本系统"）如何收集、使用、存储与保护您的个人信息。我们高度重视您的隐私，并将依据《中华人民共和国个人信息保护法》等法律法规妥善处理您的信息。</p>
 
     <h2>一、我们收集的信息</h2>

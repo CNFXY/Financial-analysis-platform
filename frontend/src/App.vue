@@ -6,7 +6,10 @@ import AppLayout from '@/layouts/AppLayout.vue'
 <template>
   <AppLayout>
     <RouterView v-slot="{ Component }">
-      <transition name="page-fade" mode="out-in">
+      <transition
+        name="page-fade"
+        mode="out-in"
+      >
         <component :is="Component" />
       </transition>
     </RouterView>

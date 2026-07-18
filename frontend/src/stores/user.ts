@@ -78,7 +78,9 @@ export const useUserStore = defineStore('user', () => {
       if (savedUser) {
         try {
           user.value = JSON.parse(savedUser)
-        } catch {}
+        } catch {
+          // 解析失败则保留默认匿名状态
+        }
       }
     }
   }

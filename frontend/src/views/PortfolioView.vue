@@ -19,29 +19,54 @@ const holdings = ref([
 <template>
   <div class="portfolio-view space-y-6">
     <div>
-      <h1 class="text-2xl font-bold text-white">组合分析</h1>
-      <p class="text-sm text-gray-500 mt-1">投资组合收益分析、风险评估与资产配置</p>
+      <h1 class="text-2xl font-bold text-white">
+        组合分析
+      </h1>
+      <p class="text-sm text-gray-500 mt-1">
+        投资组合收益分析、风险评估与资产配置
+      </p>
     </div>
 
     <!-- 总览卡片 -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="card">
-        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">总市值</p>
-        <p class="text-2xl font-bold font-mono text-white">&yen;{{ totalValue.toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}</p>
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">
+          总市值
+        </p>
+        <p class="text-2xl font-bold font-mono text-white">
+          &yen;{{ totalValue.toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}
+        </p>
       </div>
       <div class="card">
-        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">总成本</p>
-        <p class="text-2xl font-bold font-mono text-gray-400">&yen;{{ totalCost.toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}</p>
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">
+          总成本
+        </p>
+        <p class="text-2xl font-bold font-mono text-gray-400">
+          &yen;{{ totalCost.toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}
+        </p>
       </div>
-      <div class="card" :class="{ '!border-emerald-400/15': Number(totalProfitRate) >= 0 }">
-        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">累计盈亏</p>
-        <p class="text-2xl font-bold font-mono" :class="Number(totalProfitRate) >= 0 ? 'text-emerald-400' : 'text-red-400'">
+      <div
+        class="card"
+        :class="{ '!border-emerald-400/15': Number(totalProfitRate) >= 0 }"
+      >
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">
+          累计盈亏
+        </p>
+        <p
+          class="text-2xl font-bold font-mono"
+          :class="Number(totalProfitRate) >= 0 ? 'text-emerald-400' : 'text-red-400'"
+        >
           {{ Number(totalProfitRate) >= 0 ? '+' : '' }}&yen;{{ totalProfit.toFixed(2) }}
         </p>
       </div>
       <div class="card">
-        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">收益率</p>
-        <p class="text-2xl font-bold font-mono" :class="Number(totalProfitRate) >= 0 ? 'text-emerald-400' : 'text-red-400'">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">
+          收益率
+        </p>
+        <p
+          class="text-2xl font-bold font-mono"
+          :class="Number(totalProfitRate) >= 0 ? 'text-emerald-400' : 'text-red-400'"
+        >
           {{ Number(totalProfitRate) >= 0 ? '+' : '' }}{{ totalProfitRate }}%
         </p>
       </div>
@@ -49,46 +74,88 @@ const holdings = ref([
 
     <!-- Tab 切换 -->
     <div class="flex gap-1 p-1 bg-surface-light/30 rounded-xl w-fit">
-      <button v-for="tab in ['overview', 'holdings', 'analysis']" :key="tab"
-              class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
-              :class="activeTab === tab
-                ? 'bg-gold-400/10 text-gold-400 shadow-sm'
-                : 'text-gray-500 hover:text-gray-300'"
-              @click="(activeTab as any) = tab">
+      <button
+        v-for="tab in ['overview', 'holdings', 'analysis']"
+        :key="tab"
+        class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+        :class="activeTab === tab
+          ? 'bg-gold-400/10 text-gold-400 shadow-sm'
+          : 'text-gray-500 hover:text-gray-300'"
+        @click="(activeTab as any) = tab"
+      >
         {{ { overview: '总览', holdings: '持仓明细', analysis: '风险分析' }[tab] }}
       </button>
     </div>
 
     <!-- 持仓表格 -->
-    <div v-if="activeTab === 'holdings'" class="card overflow-hidden !p-0">
+    <div
+      v-if="activeTab === 'holdings'"
+      class="card overflow-hidden !p-0"
+    >
       <table class="table-data">
-        <thead><tr>
-          <th>基金代码</th><th>名称</th><th class="text-right">持有份额</th>
-          <th class="text-right">成本价</th><th class="text-right">当前净值</th>
-          <th class="text-right">盈亏金额</th><th class="text-right">盈亏比例</th><th>权重</th>
-        </tr></thead>
+        <thead>
+          <tr>
+            <th>基金代码</th><th>名称</th><th class="text-right">
+              持有份额
+            </th>
+            <th class="text-right">
+              成本价
+            </th><th class="text-right">
+              当前净值
+            </th>
+            <th class="text-right">
+              盈亏金额
+            </th><th class="text-right">
+              盈亏比例
+            </th><th>权重</th>
+          </tr>
+        </thead>
         <tbody>
-          <tr v-for="h in holdings" :key="h.fundCode">
-            <td class="font-mono text-gold-400/80">{{ h.fundCode }}</td>
+          <tr
+            v-for="h in holdings"
+            :key="h.fundCode"
+          >
+            <td class="font-mono text-gold-400/80">
+              {{ h.fundCode }}
+            </td>
             <td>{{ h.name }}</td>
-            <td class="text-right font-mono">{{ h.shares.toLocaleString() }}</td>
-            <td class="text-right font-mono">{{ h.costPrice.toFixed(3) }}</td>
-            <td class="text-right font-mono">{{ h.currentNav?.toFixed(4) ?? '-' }}</td>
-            <td class="text-right font-mono" :class="h.profit >= 0 ? 'text-emerald-400' : 'text-red-400'">
+            <td class="text-right font-mono">
+              {{ h.shares.toLocaleString() }}
+            </td>
+            <td class="text-right font-mono">
+              {{ h.costPrice.toFixed(3) }}
+            </td>
+            <td class="text-right font-mono">
+              {{ h.currentNav?.toFixed(4) ?? '-' }}
+            </td>
+            <td
+              class="text-right font-mono"
+              :class="h.profit >= 0 ? 'text-emerald-400' : 'text-red-400'"
+            >
               {{ (h.profit >= 0 ? '+' : '') + h.profit.toFixed(2) }}
             </td>
-            <td class="text-right font-mono" :class="h.profitRate >= 0 ? 'text-emerald-400' : 'text-red-400'">
+            <td
+              class="text-right font-mono"
+              :class="h.profitRate >= 0 ? 'text-emerald-400' : 'text-red-400'"
+            >
               {{ (h.profitRate >= 0 ? '+' : '') + h.profitRate.toFixed(2) }}%
             </td>
-            <td class="text-center"><span class="badge badge-gold">{{ h.weight }}%</span></td>
+            <td class="text-center">
+              <span class="badge badge-gold">{{ h.weight }}%</span>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
 
     <!-- 分析图表占位 -->
-    <div v-if="activeTab === 'analysis'" class="card min-h-[400px] flex items-center justify-center">
-      <p class="text-gray-600">风险分析图表（ECharts 集成区域）</p>
+    <div
+      v-if="activeTab === 'analysis'"
+      class="card min-h-[400px] flex items-center justify-center"
+    >
+      <p class="text-gray-600">
+        风险分析图表（ECharts 集成区域）
+      </p>
       <!-- TODO: 集成 ECharts 组件 -->
     </div>
   </div>

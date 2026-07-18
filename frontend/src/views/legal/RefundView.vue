@@ -3,7 +3,10 @@ import LegalPage from '@/components/legal/LegalPage.vue'
 </script>
 
 <template>
-  <LegalPage title="退款政策" updated="2026-07-18">
+  <LegalPage
+    title="退款政策"
+    updated="2026-07-18"
+  >
     <p>为保障您的权益，本系统依据《中华人民共和国消费者权益保护法》及相关规定，制定以下退款政策。订阅即视为您已阅读并同意本政策。</p>
 
     <h2>一、服务性质说明</h2>

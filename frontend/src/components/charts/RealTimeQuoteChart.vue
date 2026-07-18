@@ -7,7 +7,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onUnmounted } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 import BaseChart from './BaseChart.vue'
 
@@ -34,13 +34,18 @@ const props = withDefaults(defineProps<Props>(), {
 // 最新价格引用（用于实时闪烁效果）
 const latestPrice = ref<number | null>(null)
 
+// 监听数据变化更新最新价（避免在 computed 中产生副作用）
+watch(
+  () => props.data,
+  (data) => {
+    latestPrice.value = data.length > 0 ? data[data.length - 1].price : null
+  },
+  { immediate: true }
+)
+
 const chartOption = computed(() => {
   const times = props.data.map(d => d.time)
   const prices = props.data.map(d => d.price)
-  
-  if (props.data.length > 0) {
-    latestPrice.value = props.data[props.data.length - 1].price
-  }
   
   const firstPrice = prices[0] || 0
   const lastPrice = latestPrice.value || 0

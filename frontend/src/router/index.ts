@@ -109,7 +109,9 @@ router.beforeEach((to, _from, next) => {
   let user = null
   try {
     user = userStr ? JSON.parse(userStr) : null
-  } catch {}
+  } catch {
+    // 解析失败则视为未登录
+  }
 
   if (to.meta.requiresAuth && !token) {
     next({ name: 'Login', query: { redirect: to.fullPath } })
