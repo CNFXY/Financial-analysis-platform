@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FUND-OS · 多租户与权限</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<!-- 加载动画 -->
+<div id="loader-overlay">
+    <div class="loader-logo">FUND-OS</div>
+    <div class="loader-sub">INITIALIZING RBAC...</div>
+    <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+<canvas id="particle-canvas"></canvas>
+<div id="cursor-glow"></div>
+<div class="float-orb float-orb-1"></div>
+<div class="float-orb float-orb-2"></div>
+
+<nav class="navbar"><div class="nav-brand">FUND-OS</div><ul class="nav-menu"></ul></nav>
+
+<main class="container">
+    <script>document.addEventListener("DOMContentLoaded", ()=>{ buildBreadcrumb([{label:'首页',href:'/'},{label:'多租户管理',href:'/tenant'}]); });</script>
+
+    <section class="hero" style="padding:60px 20px 30px;">
+        <h1>多租户与<span class="highlight">角色权限</span>管理</h1>
+        <p class="hero-subtitle">REQ-06 · 数据按租户隔离 · 研究员/交易员/风控/管理员分级授权 · 自选与告警规则租户内共享</p>
+    </section>
+
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>当前身份</h2>
+            <span class="badge badge-gold" id="cur-seat">--</span>
+        </div>
+        <div id="cur-perm" class="hint" style="font-family:'JetBrains Mono',monospace;"></div>
+    </section>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px;">
+        <section class="panel-3d reveal">
+            <div class="section-header"><h2>席位管理</h2><span class="badge badge-info">演示租户: demo</span></div>
+            <div class="quick-estimate-form">
+                <div class="form-inline">
+                    <div class="form-group" style="flex:1.2;min-width:140px;">
+                        <label>席位 ID</label>
+                        <input type="text" id="seat-id" placeholder="如 trader-02">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>角色</label>
+                        <select id="seat-role">
+                            <option value="researcher">研究员</option>
+                            <option value="trader">交易员</option>
+                            <option value="compliance">风控/合规</option>
+                            <option value="admin">管理员</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:1.2;min-width:120px;">
+                        <label>姓名</label>
+                        <input type="text" id="seat-name" placeholder="可选">
+                    </div>
+                    <div class="form-group" style="flex:0 0 auto;align-self:flex-end;">
+                        <button class="btn-3d" onclick="addSeat()"><span>新增席位</span></button>
+                    </div>
+                </div>
+            </div>
+            <div id="seat-list" class="loading">加载中...</div>
+        </section>
+
+        <section class="panel-3d reveal">
+            <div class="section-header"><h2>权限矩阵</h2><span class="badge badge-info">RBAC</span></div>
+            <div id="perm-matrix" class="loading">加载中...</div>
+        </section>
+    </div>
+
+    <section class="panel-3d reveal" style="margin-top:18px;">
+        <div class="section-header"><h2>租户隔离数据验证</h2><span class="badge badge-gold">数据不出租户</span></div>
+        <p class="hint">下方自选与告警规则按当前租户(demo)隔离存储，仅本租户内席位可见、可共享。切换租户(Header X-Tenant-Id)后数据完全隔离。</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+            <div>
+                <h3 style="font-size:14px;color:var(--text-bright);margin-bottom:10px;">本租户自选股</h3>
+                <div id="wl-list" class="loading">加载中...</div>
+            </div>
+            <div>
+                <h3 style="font-size:14px;color:var(--text-bright);margin-bottom:10px;">本租户告警规则</h3>
+                <div id="ar-list" class="loading">加载中...</div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <div class="footer-bottom"><p>◆ FUND-OS 多租户权限 · 演示环境默认内置 demo 租户与四个席位</p></div>
+</footer>
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+<script>
+const TENANT = 'demo';
+async function loadIdentity(){
+    const r = await fetch('/api/tenant/permission?seat_id=admin-01&tenant_id='+TENANT);
+    const d = await r.json();
+    document.getElementById('cur-seat').textContent = (d.seat && d.seat.name ? d.seat.name : d.seat_id) + ' / ' + d.seat.role;
+    document.getElementById('cur-perm').textContent = '权限: ' + (d.permissions||[]).join(', ');
+}
+async function loadSeats(){
+    const r = await fetch('/api/tenant/seats?tenant_id='+TENANT);
+    const d = await r.json();
+    const box = document.getElementById('seat-list');
+    if(!d.seats.length){ box.innerHTML='<div class="empty">暂无席位</div>'; return; }
+    box.innerHTML = d.seats.map(s=>`
+        <div class="bt-strat-card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div><b>${s.seat_id}</b> · ${s.name} · <span class="badge badge-info">${s.role}</span></div>
+            <span class="del" style="cursor:pointer;color:#ff4d6f;font-weight:700;" onclick="delSeat('${s.seat_id}')">移除</span>
+        </div>`).join('');
+}
+async function addSeat(){
+    const seat_id = document.getElementById('seat-id').value.trim();
+    const role = document.getElementById('seat-role').value;
+    const name = document.getElementById('seat-name').value.trim();
+    if(!seat_id){ alert('请输入席位 ID'); return; }
+    const r = await fetch('/api/tenant/seats',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({seat_id, role, name, tenant_id:TENANT})});
+    const d = await r.json();
+    if(d.success){ document.getElementById('seat-id').value=''; document.getElementById('seat-name').value=''; loadSeats(); }
+    else alert('失败: '+d.reason);
+}
+async function delSeat(id){
+    await fetch('/api/tenant/seats',{method:'DELETE',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({seat_id:id, tenant_id:TENANT})});
+    loadSeats();
+}
+async function loadMatrix(){
+    const r = await fetch('/api/tenant/roles');
+    const d = await r.json();
+    const box = document.getElementById('perm-matrix');
+    let html = '<table class="data-table"><thead><tr><th>角色</th><th>权限</th></tr></thead><tbody>';
+    d.roles.forEach(role=>{
+        const perms = (d.permissions[role.id]||[]).join(' · ');
+        html += `<tr><td><b>${role.name}</b></td><td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);">${perms}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    box.innerHTML = html;
+}
+async function loadWatchlist(){
+    const r = await fetch('/api/tenant/watchlist?group=default&tenant_id='+TENANT);
+    const d = await r.json();
+    const codes = (d.groups && d.groups.default) || [];
+    document.getElementById('wl-list').innerHTML = codes.length
+        ? codes.map(c=>`<span class="rt-tag" style="cursor:default;">${c}</span>`).join(' ')
+        : '<div class="empty">本租户暂无自选</div>';
+}
+async function loadAlertRules(){
+    const r = await fetch('/api/tenant/alert_rules?tenant_id='+TENANT);
+    const d = await r.json();
+    const rules = d.rules||[];
+    document.getElementById('ar-list').innerHTML = rules.length
+        ? rules.filter(x=>!x._deleted).map(x=>`<div class="bt-strat-card" style="margin-bottom:8px;font-size:12px;">${x.name||x.type||x.id}</div>`).join('')
+        : '<div class="empty">本租户暂无告警规则</div>';
+}
+loadIdentity();
+loadSeats();
+loadMatrix();
+loadWatchlist();
+loadAlertRules();
+</script>
+<style>
+.bt-strat-card{ background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; }
+.del:hover{ text-decoration:underline; }
+.rt-tag{ display:inline-flex; align-items:center; background:rgba(240,176,32,.08); border:1px solid var(--border); border-radius:8px; padding:5px 10px; font-size:12.5px; margin:3px; color:var(--text); font-family:'JetBrains Mono',monospace; }
+</style>
+</body>
+</html>

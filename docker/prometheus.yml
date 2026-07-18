@@ -1,0 +1,28 @@
+# Prometheus 采集配置
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    service: 'fund-os'
+
+scrape_configs:
+  # FUND-OS 应用指标
+  - job_name: 'fund-os'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['app:5000']
+    scrape_timeout: 10s
+
+  # Node Exporter（可选：主机监控）
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - alertmanager:9093
+
+rule_files:
+  # - /etc/prometheus/alert_rules.yml

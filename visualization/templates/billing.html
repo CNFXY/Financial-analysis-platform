@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FUND-OS · 账单中心</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<style>
+.billing-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:20px 0;}
+.summary-card{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px;}
+.summary-card .label{color:var(--text-dim);font-size:12px;letter-spacing:.1em;text-transform:uppercase;}
+.summary-card .value{font-size:28px;font-weight:800;color:#fff;margin:8px 0 4px;}
+.summary-card .sub{color:var(--text-muted);font-size:12px;}
+.plan-badge{display:inline-block;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:700;background:var(--gold);color:#0a0e1a;}
+.plan-badge.trial{background:rgba(33,150,243,.18);color:#64b5f6;border:1px solid rgba(33,150,243,.3);}
+.plan-badge.expired{background:rgba(255,77,79,.18);color:#ff8a8c;border:1px solid rgba(255,77,79,.3);}
+.quota-bar{height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;margin:6px 0;}
+.quota-bar .fill{height:100%;background:linear-gradient(90deg,var(--gold),#e6c461);border-radius:4px;transition:width .5s;}
+.quota-bar .fill.warn{background:linear-gradient(90deg,#ff9800,#ffb74d);}
+.quota-bar .fill.bad{background:linear-gradient(90deg,#ff4d6f,#ff8a8c);}
+.order-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px dashed rgba(255,255,255,.06);font-size:13px;}
+.order-row:last-child{border-bottom:none;}
+.order-status{padding:2px 10px;border-radius:8px;font-size:11px;font-weight:600;}
+.order-status.paid{background:rgba(46,204,113,.18);color:#5fd49a;}
+.order-status.pending{background:rgba(255,184,0,.18);color:#ffd66b;}
+.order-status.failed,.order-status.closed{background:rgba(255,77,79,.18);color:#ff8a8c;}
+</style>
+</head>
+<body>
+<div id="loader-overlay">
+    <div class="loader-logo">FUND-OS</div>
+    <div class="loader-sub">LOADING BILLING...</div>
+    <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+<canvas id="particle-canvas"></canvas>
+<div id="cursor-glow"></div>
+
+<nav class="navbar"><div class="nav-brand">FUND-OS</div><ul class="nav-menu"></ul></nav>
+
+<main class="container">
+    <script>document.addEventListener("DOMContentLoaded", ()=>{ buildBreadcrumb([{label:'首页',href:'/'},{label:'账单中心',href:'/billing'}]); });</script>
+
+    <section class="hero" style="padding:60px 20px 24px;">
+        <h1>账单 <span class="highlight">中心</span></h1>
+        <p class="hero-subtitle">订阅管理 · 配额监控 · 订单与对账</p>
+    </section>
+
+    <div class="billing-summary" id="billing-summary">
+        <div class="summary-card">
+            <div class="label">当前套餐</div>
+            <div class="value" id="cur-plan-name">--</div>
+            <div class="sub"><span id="cur-plan-badge" class="plan-badge">--</span></div>
+        </div>
+        <div class="summary-card">
+            <div class="label">到期时间</div>
+            <div class="value" id="cur-expires" style="font-size:20px;">--</div>
+            <div class="sub" id="cur-expires-sub">--</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">席位</div>
+            <div class="value" id="cur-seats">--</div>
+            <div class="sub" id="cur-tenant">租户: --</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">今日 API 用量</div>
+            <div class="value"><span id="api-used">0</span> <small style="font-size:14px;color:var(--text-dim);">/ <span id="api-limit">0</span></small></div>
+            <div class="quota-bar"><div class="fill" id="api-bar" style="width:0%"></div></div>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:18px;">
+        <section class="panel-3d reveal">
+            <div class="section-header">
+                <h2>今日配额</h2>
+                <button class="btn-3d ghost" onclick="window.location.href='/pricing'"><span>升级套餐</span></button>
+            </div>
+            <div id="quota-list" class="loading">加载中...</div>
+        </section>
+
+        <section class="panel-3d reveal">
+            <div class="section-header">
+                <h2>最近订单</h2>
+                <span class="badge" id="order-count">0 单</span>
+            </div>
+            <div id="order-list" class="loading">加载中...</div>
+        </section>
+    </div>
+
+    <section class="panel-3d reveal" style="margin-top:24px;">
+        <div class="section-header">
+            <h2>功能权限</h2>
+            <span class="badge badge-info" id="plan-mode">--</span>
+        </div>
+        <div id="feature-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;font-size:13px;"></div>
+    </section>
+</main>
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+<script>
+const FEATURE_LABEL = {
+    realtime_quote:"实时行情", delayed_quote:"延迟盘", l2_depth:"L2 深度行情",
+    fund_estimate_basic:"基金估算(基础)", fund_estimate_full:"基金估算(完整)",
+    tech_analysis:"技术分析", valuation:"估值分位", backtest:"策略回测",
+    backtest_guardrail:"防过拟合护栏", risk_basic:"风险分析(基础)", risk_full:"风险分析(完整)",
+    export:"报告导出", compliance_pack:"合规材料包",
+};
+
+function fmtTime(ts){
+    if(!ts) return '--';
+    const d = new Date(ts*1000);
+    return d.toLocaleString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+function fmtDate(ts){
+    if(!ts) return '--';
+    return new Date(ts*1000).toLocaleDateString('zh-CN');
+}
+
+async function loadMe(){
+    const r = await fetch('/api/billing/me');
+    const d = await r.json();
+    const sub = d.subscription, plan = d.plan;
+    document.getElementById('cur-plan-name').textContent = plan.name;
+    const badge = document.getElementById('cur-plan-badge');
+    badge.textContent = sub.status==='trial'?'试用中':(sub.status==='active'?'生效中':(sub.status==='expired'?'已过期':'--'));
+    badge.className = 'plan-badge'+(sub.status==='trial'?' trial':(sub.status==='expired'?' expired':''));
+    document.getElementById('cur-expires').textContent = fmtDate(sub.expires_at);
+    const remainDays = Math.max(0, Math.ceil((sub.expires_at - Date.now()/1000)/86400));
+    document.getElementById('cur-expires-sub').textContent = sub.plan==='free'?'永久':(sub.status==='trial'?'试用剩余 '+remainDays+' 天':'剩余 '+remainDays+' 天');
+    document.getElementById('cur-seats').textContent = sub.seats;
+    document.getElementById('cur-tenant').textContent = '租户: ' + d.tenant_id;
+
+    // 配额
+    const q = d.quota;
+    const apiU=q.api_per_day.used, apiL=q.api_per_day.limit;
+    document.getElementById('api-used').textContent = apiU;
+    document.getElementById('api-limit').textContent = apiL>=99999?'∞':apiL;
+    const apiPct = apiL>=99999?0:Math.min(100, apiU/apiL*100);
+    const apiBar = document.getElementById('api-bar');
+    apiBar.style.width = apiPct+'%';
+    apiBar.className = 'fill'+(apiPct>80?' bad':(apiPct>60?' warn':''));
+
+    const ql = document.getElementById('quota-list');
+    ql.innerHTML = ['api_per_day','backtest_per_day','alert_per_day'].map(k=>{
+        const v = q[k];
+        const pct = v.limit>=99999?0:Math.min(100, v.used/v.limit*100);
+        const cls = pct>80?'bad':(pct>60?'warn':'');
+        const limTxt = v.limit>=99999?'不限':v.limit;
+        return `<div style="padding:10px 0;border-bottom:1px dashed rgba(255,255,255,.06);">
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                <span>${({api_per_day:'API 调用',backtest_per_day:'回测任务',alert_per_day:'告警推送'})[k]}</span>
+                <span style="color:var(--text-dim);">${v.used} / ${limTxt}</span>
+            </div>
+            <div class="quota-bar"><div class="fill ${cls}" style="width:${pct}%"></div></div>
+        </div>`;
+    }).join('');
+
+    // 功能权限
+    const planMode = document.getElementById('plan-mode');
+    planMode.textContent = (plan.name) + ' · ' + (sub.status==='trial'?'试用':(sub.is_active?'已激活':'已过期'));
+    const fl = document.getElementById('feature-list');
+    fl.innerHTML = Object.keys(FEATURE_LABEL).map(k=>{
+        const on = !!plan.features[k];
+        return `<div style="padding:8px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;display:flex;align-items:center;justify-content:space-between;">
+            <span>${FEATURE_LABEL[k]}</span>
+            <span style="color:${on?'var(--success)':'var(--text-dim)'};">${on?'✓ 开放':'× 锁定'}</span>
+        </div>`;
+    }).join('');
+
+    // 订单
+    await loadOrders();
+}
+
+async function loadOrders(){
+    const r = await fetch('/api/billing/orders');
+    const d = await r.json();
+    const list = document.getElementById('order-list');
+    document.getElementById('order-count').textContent = d.orders.length + ' 单';
+    if(!d.orders.length){ list.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:20px 0;text-align:center;">暂无订单</div>'; return; }
+    list.innerHTML = d.orders.slice(0,10).map(o=>{
+        const amount = (o.amount_cents/100).toFixed(2);
+        return `<div class="order-row">
+            <div>
+                <div style="color:#fff;">${o.plan_name} <span style="color:var(--text-dim);">· ¥${amount}</span></div>
+                <div style="color:var(--text-dim);font-size:11px;margin-top:2px;">${o.order_id} · ${fmtTime(o.created_at)}</div>
+            </div>
+            <div style="text-align:right;">
+                <span class="order-status ${o.status}">${({paid:'已支付',pending:'待支付',failed:'失败',closed:'已关闭',refunded:'已退款'})[o.status]||o.status}</span>
+                <div style="color:var(--text-dim);font-size:11px;margin-top:4px;">${o.channel}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+loadMe();
+</script>
+</body>
+</html>

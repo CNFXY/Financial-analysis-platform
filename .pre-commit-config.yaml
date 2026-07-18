@@ -1,0 +1,13 @@
+# FUND-OS 预提交钩子
+# 安装：pip install pre-commit && pre-commit install
+# 作用：提交前对 scripts/*.sh 做 bash 语法 + shellcheck 静态检查，
+#       避免把有语法错误的运维/部署脚本推上去。
+repos:
+  - repo: local
+    hooks:
+      - id: sh-lint
+        name: shell 脚本检查 (bash -n + shellcheck)
+        entry: bash scripts/lint_sh.sh
+        language: system
+        files: ^scripts/.*\.sh$
+        pass_filenames: true

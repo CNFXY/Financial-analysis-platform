@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>支付完成 · FUND-OS</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<style>
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a0e1a;color:#fff;}
+.card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:40px;max-width:480px;width:90%;text-align:center;}
+.icon{font-size:64px;margin-bottom:16px;}
+h1{font-size:22px;margin-bottom:12px;}
+p{color:var(--text-dim);font-size:14px;line-height:1.7;margin:8px 0;}
+.detail{background:rgba(0,0,0,.3);border-radius:8px;padding:12px;margin:16px 0;font-family:'JetBrains Mono',monospace;font-size:12px;text-align:left;color:var(--text-muted);}
+.actions{margin-top:24px;display:flex;gap:12px;justify-content:center;}
+</style>
+</head>
+<body>
+<div class="card">
+    <div class="icon">⏳</div>
+    <h1>支付回跳</h1>
+    <p>请稍候，我们正在确认您的支付结果...</p>
+    {% if verified is defined and not verified %}
+    <p style="color:#ff7875;font-size:13px;">⚠️ 回跳签名校验未通过，请等待异步通知或联系商务确认。</p>
+    {% endif %}
+    <div class="detail">
+        {% for k,v in params.items() %}
+        <div>{{k}}: {{v}}</div>
+        {% endfor %}
+    </div>
+    <div class="actions">
+        <a class="btn-3d" href="/billing"><span>查看账单</span></a>
+        <a class="btn-3d ghost" href="/"><span>返回首页</span></a>
+    </div>
+    <p style="font-size:12px;margin-top:20px;">如果长时间未到账，请联系商务：biz@fundos.example</p>
+</div>
+<script>
+setTimeout(()=>{ window.location.href='/billing'; }, 3000);
+</script>
+</body>
+</html>

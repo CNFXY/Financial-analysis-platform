@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>风险分析 · FUND-OS</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div id="loader-overlay">
+    <div class="loader-logo">FUND-OS</div>
+    <div class="loader-sub">LOADING RISK ANALYSIS...</div>
+    <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<canvas id="particle-canvas"></canvas>
+<div id="cursor-glow"></div>
+
+<div class="float-orb float-orb-1"></div>
+<div class="float-orb float-orb-2"></div>
+
+<nav class="navbar"><div class="nav-brand">FUND-OS</div><ul class="nav-menu"></ul></nav>
+
+<main class="container">
+    <script>document.addEventListener("DOMContentLoaded", ()=>{ buildBreadcrumb([{label:'首页',href:'/'},{label:'风险分析',href:'/risk_analysis'}]); });</script>
+
+    <!-- 页面标题 -->
+    <section class="hero" style="padding: 40px 20px 30px;">
+        <div style="margin-bottom: 16px;">
+            <span class="badge badge-gold">◆ 风险评估引擎</span>
+        </div>
+        <h1>风险收益分析 <span class="highlight">& 回撤评估</span></h1>
+        <p>夏普比率 · 最大回撤 · 年化波动 · 相关性矩阵 · 卡玛比率 · 阿尔法贝塔</p>
+    </section>
+
+    <!-- 单基金风险分析 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>📊 单基金风险分析</h2>
+            <div class="section-actions">
+                <span class="badge badge-info">全面风险评估</span>
+            </div>
+        </div>
+        
+        <div class="form-grid">
+            <div class="form-group">
+                <label>📌 基金代码</label>
+                <input type="text" id="risk-code" placeholder="如 510300.SH" value="510300.SH">
+            </div>
+            <div class="form-group">
+                <label>🌍 市场类型</label>
+                <select id="risk-type">
+                    <option value="cn">中国基金</option>
+                    <option value="us">海外基金</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>📅 分析天数</label>
+                <input type="number" id="risk-days" placeholder="分析天数" value="252" min="30" max="1000">
+            </div>
+            <div class="form-group">
+                <label>🎯 基准代码 (可选)</label>
+                <input type="text" id="risk-benchmark" placeholder="如 000300.SH">
+            </div>
+        </div>
+        
+        <div style="margin-top: 24px;">
+            <button class="btn-3d" onclick="analyzeRisk()">
+                <span>🔍 开始风险分析</span>
+            </button>
+        </div>
+    </section>
+
+    <!-- 风险收益指标 -->
+    <section class="panel-3d reveal" id="risk-result-panel" style="display:none;">
+        <div class="section-header">
+            <h2>📈 风险收益指标</h2>
+            <div class="section-actions">
+                <span class="badge badge-success" id="risk-update-time">--</span>
+            </div>
+        </div>
+        
+        <!-- 核心指标 -->
+        <div class="risk-section">
+            <h3 class="risk-section-title">⚡ 核心指标</h3>
+            <div class="dashboard-grid" id="risk-core-metrics"></div>
+        </div>
+        
+        <!-- 风险调整收益 -->
+        <div class="risk-section">
+            <h3 class="risk-section-title">📊 风险调整收益</h3>
+            <div class="dashboard-grid" id="risk-adjusted-metrics"></div>
+        </div>
+        
+        <!-- 回撤与波动 -->
+        <div class="risk-section">
+            <h3 class="risk-section-title">📉 回撤与波动</h3>
+            <div class="dashboard-grid" id="risk-drawdown-metrics"></div>
+        </div>
+        
+        <!-- 阿尔法贝塔 (如果有) -->
+        <div class="risk-section" id="alpha-beta-section" style="display:none;">
+            <h3 class="risk-section-title">🎯 阿尔法与贝塔</h3>
+            <div class="dashboard-grid" id="risk-alpha-beta-metrics"></div>
+        </div>
+        
+        <!-- 收益分布 -->
+        <div class="risk-section">
+            <h3 class="risk-section-title">📊 收益分布</h3>
+            <div class="dashboard-grid" id="risk-distribution-metrics"></div>
+        </div>
+    </section>
+
+    <!-- 组合风险分析 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>💼 组合风险分析</h2>
+            <div class="section-actions">
+                <span class="badge badge-info">多资产组合</span>
+            </div>
+        </div>
+        
+        <div class="portfolio-input">
+            <div class="form-group">
+                <label>📝 基金持仓列表</label>
+                <textarea id="portfolio-funds" rows="5" placeholder="输入基金列表，每行一个: 代码,类型,权重&#10;如: 510300.SH,cn,0.4&#10;    510500.SH,cn,0.3&#10;    SPY,us,0.3">510300.SH,cn,0.4
+510500.SH,cn,0.3
+SPY,us,0.3</textarea>
+                <div class="input-hint">
+                    💡 格式说明：每行一只基金，代码、类型、权重用逗号分隔，权重之和应为 1.0
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button class="btn-3d btn-outline" onclick="analyzePortfolioRisk()">
+                <span>📊 分析组合风险</span>
+            </button>
+        </div>
+    </section>
+
+    <!-- 组合风险分析结果 -->
+    <section class="panel-3d reveal" id="portfolio-risk-panel" style="display:none;">
+        <div class="section-header">
+            <h2>💼 组合风险分析结果</h2>
+            <div class="section-actions">
+                <span class="badge badge-success" id="portfolio-risk-time">--</span>
+            </div>
+        </div>
+        
+        <!-- 组合核心指标 -->
+        <div class="risk-section">
+            <h3 class="risk-section-title">⚡ 组合核心指标</h3>
+            <div class="dashboard-grid" id="portfolio-risk-metrics"></div>
+        </div>
+        
+        <!-- 相关性矩阵 -->
+        <div class="risk-section">
+            <h3 class="risk-section-title">🔗 相关性矩阵</h3>
+            <div class="correlation-matrix" id="correlation-matrix"></div>
+            <div class="correlation-legend">
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #00f0a0;"></span>
+                    <span>低相关 (&lt; 0.3)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #f0b020;"></span>
+                    <span>中等相关 (0.3-0.8)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #ff4d6d;"></span>
+                    <span>高相关 (&gt; 0.8)</span>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <p>◆ FUND-OS 基金估算系统 · 风险分析仅供参考，不构成投资建议</p>
+</footer>
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+<script>
+async function analyzeRisk() {
+    const code = document.getElementById('risk-code').value;
+    const type = document.getElementById('risk-type').value;
+    const days = document.getElementById('risk-days').value;
+    const benchmark = document.getElementById('risk-benchmark').value;
+    
+    document.getElementById('risk-result-panel').style.display = 'none';
+    
+    try {
+        const body = {code, type, days: parseInt(days)};
+        if (benchmark) body.benchmark_code = benchmark;
+        
+        const res = await fetch('/api/risk/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        
+        // 核心指标
+        const coreMetrics = [
+            { label: '年化收益率', value: data.annualized_return_pct + '%', icon: '📈', color: data.annualized_return_pct >= 0 ? 'success' : 'danger' },
+            { label: '年化波动率', value: data.annualized_volatility_pct + '%', icon: '📊', color: 'warning' },
+            { label: '最大回撤', value: data.max_drawdown.max_drawdown_pct + '%', icon: '📉', color: 'danger' },
+        ];
+        document.getElementById('risk-core-metrics').innerHTML = coreMetrics.map(m => `
+            <div class="stat-card">
+                <div class="stat-icon">${m.icon}</div>
+                <div class="stat-label">${m.label}</div>
+                <div class="stat-value" style="color: var(--${m.color});">${m.value}</div>
+            </div>
+        `).join('');
+        
+        // 风险调整收益
+        const adjustedMetrics = [
+            { label: '夏普比率', value: data.sharpe_ratio ? data.sharpe_ratio.toFixed(3) : 'N/A', icon: '⚡', desc: '风险调整后收益' },
+            { label: '索提诺比率', value: data.sortino_ratio ? data.sortino_ratio.toFixed(3) : 'N/A', icon: '🎯', desc: '下行风险调整' },
+            { label: '卡玛比率', value: data.calmar_ratio ? data.calmar_ratio.toFixed(3) : 'N/A', icon: '📊', desc: '回撤调整收益' },
+        ];
+        document.getElementById('risk-adjusted-metrics').innerHTML = adjustedMetrics.map(m => `
+            <div class="stat-card">
+                <div class="stat-icon">${m.icon}</div>
+                <div class="stat-label">${m.label}</div>
+                <div class="stat-value">${m.value}</div>
+                <div class="stat-change">${m.desc}</div>
+            </div>
+        `).join('');
+        
+        // 回撤与波动
+        const drawdownMetrics = [
+            { label: '下行偏差', value: data.downside_deviation_pct + '%', icon: '📉', desc: '负收益波动' },
+            { label: '正收益天数', value: data.positive_days_pct + '%', icon: '✅', desc: '上涨天数占比' },
+            { label: '负收益天数', value: data.negative_days_pct + '%', icon: '❌', desc: '下跌天数占比' },
+        ];
+        document.getElementById('risk-drawdown-metrics').innerHTML = drawdownMetrics.map(m => `
+            <div class="stat-card">
+                <div class="stat-icon">${m.icon}</div>
+                <div class="stat-label">${m.label}</div>
+                <div class="stat-value">${m.value}</div>
+                <div class="stat-change">${m.desc}</div>
+            </div>
+        `).join('');
+        
+        // 阿尔法贝塔
+        if (data.alpha_beta) {
+            document.getElementById('alpha-beta-section').style.display = 'block';
+            const alphaBetaMetrics = [
+                { label: '阿尔法 (年化)', value: data.alpha_beta.alpha ? data.alpha_beta.alpha.toFixed(3) : 'N/A', icon: 'α', desc: '超额收益' },
+                { label: '贝塔', value: data.alpha_beta.beta ? data.alpha_beta.beta.toFixed(3) : 'N/A', icon: 'β', desc: '市场敏感度' },
+                { label: '相关系数', value: data.alpha_beta.correlation ? data.alpha_beta.correlation.toFixed(3) : 'N/A', icon: '🔗', desc: '与基准相关性' },
+                { label: 'R平方', value: data.alpha_beta.r_squared ? data.alpha_beta.r_squared.toFixed(3) : 'N/A', icon: 'R²', desc: '拟合优度' },
+            ];
+            document.getElementById('risk-alpha-beta-metrics').innerHTML = alphaBetaMetrics.map(m => `
+                <div class="stat-card">
+                    <div class="stat-icon">${m.icon}</div>
+                    <div class="stat-label">${m.label}</div>
+                    <div class="stat-value">${m.value}</div>
+                    <div class="stat-change">${m.desc}</div>
+                </div>
+            `).join('');
+        } else {
+            document.getElementById('alpha-beta-section').style.display = 'none';
+        }
+        
+        // 收益分布
+        const distMetrics = [
+            { label: '正收益占比', value: data.positive_days_pct + '%', icon: '📈', color: 'success' },
+            { label: '负收益占比', value: data.negative_days_pct + '%', icon: '📉', color: 'danger' },
+            { label: '盈亏比', value: (data.positive_days_pct / data.negative_days_pct).toFixed(2), icon: '⚖️', color: 'info' },
+        ];
+        document.getElementById('risk-distribution-metrics').innerHTML = distMetrics.map(m => `
+            <div class="stat-card">
+                <div class="stat-icon">${m.icon}</div>
+                <div class="stat-label">${m.label}</div>
+                <div class="stat-value" style="color: var(--${m.color});">${m.value}</div>
+            </div>
+        `).join('');
+        
+        // 更新时间
+        document.getElementById('risk-update-time').textContent = 
+            '更新于 ' + new Date().toLocaleTimeString();
+        
+        document.getElementById('risk-result-panel').style.display = 'block';
+        
+    } catch (e) {
+        alert('请求失败: ' + e.message);
+    }
+}
+
+async function analyzePortfolioRisk() {
+    const raw = document.getElementById('portfolio-funds').value.trim();
+    if (!raw) return;
+    
+    const funds = raw.split('\n').map(line => {
+        const parts = line.split(',');
+        return {code: parts[0].trim(), type: parts[1].trim(), weight: parseFloat(parts[2])};
+    }).filter(f => f.code && f.type && f.weight);
+    
+    if (funds.length === 0) {
+        alert('请输入有效的基金列表');
+        return;
+    }
+    
+    document.getElementById('portfolio-risk-panel').style.display = 'none';
+    
+    try {
+        const res = await fetch('/api/risk/portfolio', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({funds, days: 252})
+        });
+        const data = await res.json();
+        
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        
+        const portfolio = data.portfolio;
+        
+        // 组合核心指标
+        const portfolioMetrics = [
+            { label: '组合年化收益', value: portfolio.annualized_return_pct + '%', icon: '📈', color: portfolio.annualized_return_pct >= 0 ? 'success' : 'danger' },
+            { label: '组合年化波动', value: portfolio.annualized_volatility_pct + '%', icon: '📊', color: 'warning' },
+            { label: '组合最大回撤', value: portfolio.max_drawdown.max_drawdown_pct + '%', icon: '📉', color: 'danger' },
+            { label: '组合夏普比率', value: portfolio.sharpe_ratio ? portfolio.sharpe_ratio.toFixed(3) : 'N/A', icon: '⚡', color: 'info' },
+            { label: '组合索提诺比率', value: portfolio.sortino_ratio ? portfolio.sortino_ratio.toFixed(3) : 'N/A', icon: '🎯', color: 'info' },
+            { label: '组合卡玛比率', value: portfolio.calmar_ratio ? portfolio.calmar_ratio.toFixed(3) : 'N/A', icon: '📊', color: 'info' },
+        ];
+        document.getElementById('portfolio-risk-metrics').innerHTML = portfolioMetrics.map(m => `
+            <div class="stat-card">
+                <div class="stat-icon">${m.icon}</div>
+                <div class="stat-label">${m.label}</div>
+                <div class="stat-value" style="color: var(--${m.color});">${m.value}</div>
+            </div>
+        `).join('');
+        
+        // 相关性矩阵
+        const corr = data.correlation_matrix;
+        if (corr && Object.keys(corr).length > 0) {
+            const keys = Object.keys(corr);
+            let html = '<table class="corr-table">';
+            
+            // 表头
+            html += '<thead><tr><th></th>';
+            keys.forEach(k => {
+                html += `<th>${k}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            // 数据行
+            keys.forEach(k => {
+                html += `<tr><th class="corr-row-header">${k}</th>`;
+                keys.forEach(k2 => {
+                    const val = corr[k][k2];
+                    const valFixed = val.toFixed(3);
+                    
+                    // 根据相关性确定颜色
+                    let bgColor, textColor;
+                    if (k === k2) {
+                        bgColor = 'rgba(240, 176, 32, 0.2)';
+                        textColor = '#f0b020';
+                    } else if (val > 0.8) {
+                        bgColor = 'rgba(255, 77, 109, 0.2)';
+                        textColor = '#ff4d6d';
+                    } else if (val < 0.3) {
+                        bgColor = 'rgba(0, 240, 160, 0.2)';
+                        textColor = '#00f0a0';
+                    } else {
+                        bgColor = 'rgba(240, 176, 32, 0.1)';
+                        textColor = '#f0b020';
+                    }
+                    
+                    html += `<td style="background: ${bgColor}; color: ${textColor}; font-weight: 600;">${valFixed}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            document.getElementById('correlation-matrix').innerHTML = html;
+        }
+        
+        // 更新时间
+        document.getElementById('portfolio-risk-time').textContent = 
+            '更新于 ' + new Date().toLocaleTimeString();
+        
+        document.getElementById('portfolio-risk-panel').style.display = 'block';
+        
+    } catch (e) {
+        alert('请求失败: ' + e.message);
+    }
+}
+</script>
+
+<style>
+/* 风险分析分区 */
+.risk-section {
+    margin-bottom: 32px;
+}
+
+.risk-section:last-child {
+    margin-bottom: 0;
+}
+
+.risk-section-title {
+    font-size: 14px;
+    color: var(--gold);
+    margin-bottom: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(240, 176, 32, 0.1);
+}
+
+/* 组合输入 */
+.portfolio-input textarea {
+    width: 100%;
+    min-height: 140px;
+    background: rgba(8, 14, 28, 0.6);
+    color: var(--gold);
+    border: 1px solid rgba(240, 176, 32, 0.2);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    resize: vertical;
+    transition: all 0.3s ease;
+}
+
+.portfolio-input textarea:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 20px var(--gold-glow);
+}
+
+.input-hint {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 10px 14px;
+    background: rgba(240, 176, 32, 0.05);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(240, 176, 32, 0.08);
+}
+
+/* 相关性矩阵 */
+.correlation-matrix {
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+.corr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+}
+
+.corr-table th,
+.corr-table td {
+    padding: 14px 16px;
+    text-align: center;
+    border: 1px solid rgba(240, 176, 32, 0.08);
+    transition: all 0.3s ease;
+}
+
+.corr-table th {
+    background: rgba(240, 176, 32, 0.1);
+    color: var(--gold);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.corr-table .corr-row-header {
+    background: rgba(240, 176, 32, 0.08);
+    color: var(--gold);
+    font-weight: 600;
+    text-align: left;
+    min-width: 120px;
+}
+
+.corr-table td:hover {
+    transform: scale(1.05);
+    z-index: 1;
+    position: relative;
+}
+
+/* 相关性图例 */
+.correlation-legend {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 16px;
+    background: rgba(8, 14, 28, 0.4);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(240, 176, 32, 0.06);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+.legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .correlation-legend {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .corr-table th,
+    .corr-table td {
+        padding: 10px 8px;
+        font-size: 11px;
+    }
+}
+</style>
+</body>
+</html>

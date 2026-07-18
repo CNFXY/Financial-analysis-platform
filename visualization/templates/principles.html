@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FUND-OS · 指标与算法原理</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div id="loader-overlay">
+    <div class="loader-logo">FUND-OS</div>
+    <div class="loader-sub">LOADING PRINCIPLES...</div>
+    <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+<canvas id="particle-canvas"></canvas>
+<div id="cursor-glow"></div>
+<div class="float-orb float-orb-1"></div>
+<div class="float-orb float-orb-2"></div>
+
+<nav class="navbar">
+    <div class="nav-brand">FUND-OS</div>
+    <ul class="nav-menu">
+        <li><a href="/">首页</a></li>
+        <li><a href="/fund_estimate">基金估算</a></li>
+        <li><a href="/tech_analysis">技术指标</a></li>
+        <li><a href="/risk_analysis">风险分析</a></li>
+        <li><a href="/compare">基金对比</a></li>
+        <li><a href="/valuation">估值锚定</a></li>
+        <li><a href="/backtest">策略回测</a></li>
+        <li><a href="/portfolio">组合分析</a></li>
+        <li><a href="/news">全球资讯</a></li>
+        <li><a href="/principles" class="active">算法原理</a></li>
+        <li><a href="/reports">报告中心</a></li>
+    </ul>
+</nav>
+
+<main class="container">
+    <section class="hero" style="padding:60px 20px 30px;">
+        <h1>指标与<span class="highlight">算法原理</span></h1>
+        <p class="hero-subtitle">深入理解 FUND-OS 背后的数学模型 · 从技术指标到估值锚定与策略回测</p>
+    </section>
+
+    <section class="panel-3d reveal">
+        <div class="section-header"><h2>目录</h2></div>
+        <div class="toc-grid">
+            <a class="toc-item" href="#trend">① 趋势类指标</a>
+            <a class="toc-item" href="#osc">② 摆动类指标</a>
+            <a class="toc-item" href="#vol">③ 波动与量能</a>
+            <a class="toc-item" href="#risk">④ 风险指标</a>
+            <a class="toc-item" href="#est">⑤ 估值锚定</a>
+            <a class="toc-item" href="#bt">⑥ 策略回测</a>
+            <a class="toc-item" href="#model">⑦ 预测模型</a>
+        </div>
+    </section>
+
+    <!-- 趋势类 -->
+    <section class="panel-3d reveal" id="trend">
+        <h2>① 趋势类指标</h2>
+        <div class="principle-card">
+            <h3>MA 移动平均 (Moving Average)</h3>
+            <div class="formula">MA(n) = (P₁ + P₂ + … + Pₙ) / n</div>
+            <p>对最近 n 个交易日的收盘价取算术平均，平滑短期噪声以呈现趋势方向。常用 5/10/20/60/120/250 日。价格上穿均线为金叉看多，下穿为死叉看空。</p>
+        </div>
+        <div class="principle-card">
+            <h3>EMA 指数移动平均 (Exponential MA)</h3>
+            <div class="formula">EMAₜ = α·Pₜ + (1−α)·EMAₜ₋₁， α = 2/(n+1)</div>
+            <p>对近期价格赋予更大权重，比 MA 更灵敏地反映趋势变化，常用参数 12/26。</p>
+        </div>
+        <div class="principle-card">
+            <h3>MACD 指数平滑异同移动平均</h3>
+            <div class="formula">DIF = EMA(12) − EMA(26)<br>DEA = EMA(DIF, 9)<br>MACD柱 = 2·(DIF − DEA)</div>
+            <p>DIF 与 DEA 金叉为买入信号，死叉为卖出信号；红绿柱反映多空动能强弱。是趋势与动量结合的经典指标。</p>
+        </div>
+        <div class="principle-card">
+            <h3>ADX 平均趋向指数</h3>
+            <div class="formula">ADX = MA(100·|DI⁺−DI⁻| / (DI⁺+DI⁻), 14)</div>
+            <p>衡量趋势"强度"而非方向，ADX &gt; 25 表示趋势明显，&lt; 20 表示震荡市。</p>
+        </div>
+    </section>
+
+    <!-- 摆动类 -->
+    <section class="panel-3d reveal" id="osc">
+        <h2>② 摆动类指标</h2>
+        <div class="principle-card">
+            <h3>RSI 相对强弱指标</h3>
+            <div class="formula">RSI = 100 − 100 / (1 + RS)， RS = 平均涨幅 / 平均跌幅</div>
+            <p>取值 0~100，&gt; 70 视为超买，&lt; 30 视为超卖。用于识别价格反转机会。</p>
+        </div>
+        <div class="principle-card">
+            <h3>KDJ 随机指标</h3>
+            <div class="formula">RSV = (C−Lₙ) / (Hₙ−Lₙ) × 100<br>K = 2/3·Kₜ₋₁ + 1/3·RSV， D = 2/3·Dₜ₋₁ + 1/3·K， J = 3K − 2D</div>
+            <p>K、D 金叉且 J &lt; 0 为买入信号；K、D 死叉且 J &gt; 100 为卖出信号。</p>
+        </div>
+        <div class="principle-card">
+            <h3>布林带 Bollinger Bands</h3>
+            <div class="formula">中轨 = MA(20)<br>上轨 = MA(20) + 2σ， 下轨 = MA(20) − 2σ</div>
+            <p>基于均值与标准差刻画价格波动区间。价格触上轨可能超买，触下轨可能超卖；带宽收窄预示变盘。</p>
+        </div>
+        <div class="principle-card">
+            <h3>CCI / Williams %R / ROC</h3>
+            <p><b>CCI</b>：价格与其统计均值偏离度，&gt;100 超买 &lt;−100 超卖。<br><b>Williams %R</b>：近期最高最低价的相对位置，0~−20 超买、−80~−100 超卖。<br><b>ROC</b>：变动率 = (Pₜ − Pₜ₋ₙ)/Pₜ₋ₙ ×100，衡量动量速度。</p>
+        </div>
+    </section>
+
+    <!-- 波动量能 -->
+    <section class="panel-3d reveal" id="vol">
+        <h2>③ 波动与量能指标</h2>
+        <div class="principle-card">
+            <h3>ATR 真实波幅</h3>
+            <div class="formula">TR = max(H−L, |H−Cₜ₋₁|, |L−Cₜ₋₁|)<br>ATR = MA(TR, n)</div>
+            <p>衡量单根 K 线真实波动幅度，常用于止损位设定（如 2×ATR 止损）与仓位管理。</p>
+        </div>
+        <div class="principle-card">
+            <h3>OBV 能量潮 / MFI 资金流量</h3>
+            <p><b>OBV</b>：上涨日加量、下跌日减量，累积量能判断资金流向。<br><b>MFI</b>：RSI 的量能版本，结合典型价与成交额，&gt;80 超买 &lt;20 超卖。</p>
+        </div>
+        <div class="principle-card">
+            <h3>VWAP 成交量加权均价</h3>
+            <div class="formula">VWAP = Σ(Priceᵢ × Volumeᵢ) / ΣVolumeᵢ</div>
+            <p>机构常用基准价，价格高于 VWAP 偏强、低于偏弱，适合日内交易参考。</p>
+        </div>
+    </section>
+
+    <!-- 风险 -->
+    <section class="panel-3d reveal" id="risk">
+        <h2>④ 风险与组合指标</h2>
+        <div class="principle-card">
+            <h3>夏普比率 Sharpe</h3>
+            <div class="formula">Sharpe = (Rₚ − R_f) / σₚ</div>
+            <p>超额收益与总波动之比，衡量"每承担一单位风险获得的回报"，越高越好。</p>
+        </div>
+        <div class="principle-card">
+            <h3>索提诺 / 卡玛比率</h3>
+            <div class="formula">Sortino = (Rₚ − R_f) / σ_下行<br>Calmar = 年化收益 / |最大回撤|</div>
+            <p>索提诺只考虑下行波动；卡玛衡量收益对回撤的覆盖能力，更关注"最坏情况"。</p>
+        </div>
+        <div class="principle-card">
+            <h3>最大回撤 Max Drawdown</h3>
+            <div class="formula">MDD = min((Vₜ − max(V₀..ₜ)) / max(V₀..ₜ)) × 100%</div>
+            <p>资金曲线从历史高点到后续最低点的最大跌幅，反映极端亏损风险。</p>
+        </div>
+        <div class="principle-card">
+            <h3>α / β (CAPM)</h3>
+            <div class="formula">Rᵢ − R_f = α + β(Rₘ − R_f) + ε</div>
+            <p>β 衡量相对市场的系统性风险敏感度；α 为跑赢市场的超额收益（选股能力）。</p>
+        </div>
+    </section>
+
+    <!-- 估值锚定 -->
+    <section class="panel-3d reveal" id="est">
+        <h2>⑤ 估值锚定原理</h2>
+        <div class="principle-card">
+            <h3>历史分位估值法</h3>
+            <div class="formula">分位 = (价格 &lt; 当前价 的历史样本数) / 总样本数 × 100%</div>
+            <p>将当前价格置于历史价格分布中定位：分位 ≤ 20% 视为低估，≥ 80% 视为高估，中间为合理。是当前"相对便宜/贵"的核心判据。</p>
+        </div>
+        <div class="principle-card">
+            <h3>支撑 / 压力锚点</h3>
+            <p>取历史分布的 10% / 25% / 50% / 75% / 90% 分位数作为强支撑、弱支撑、中值、弱压力、强压力位，结合当前价给出"偏离度"提示安全边际。</p>
+        </div>
+        <div class="principle-card">
+            <h3>动量 & 波动率</h3>
+            <p>20/60 日动量反映短期与中期动能；年化波动率 = 日收益标准差 × √252，刻画价格波动剧烈程度，辅助判断估值区间的可靠性。</p>
+        </div>
+    </section>
+
+    <!-- 策略回测 -->
+    <section class="panel-3d reveal" id="bt">
+        <h2>⑥ 策略回测原理</h2>
+        <div class="principle-card">
+            <h3>双均线交叉 (MA Cross)</h3>
+            <p>快线(MA5)上穿慢线(MA20)为金叉，满仓买入；下穿为死叉，空仓持币。捕捉趋势中段收益，震荡市易频繁止损。</p>
+        </div>
+        <div class="principle-card">
+            <h3>定投 DCA</h3>
+            <p>每个交易日投入固定金额，价格低时自动多买份额、高时少买，长期摊平成本、降低择时风险，能显著平滑回撤。</p>
+        </div>
+        <div class="principle-card">
+            <h3>买入持有 Buy & Hold</h3>
+            <p>期初一次性买入持有至期末，作为所有主动策略的业绩基准（Benchmark）。</p>
+        </div>
+        <div class="principle-card">
+            <h3>回测评价指标</h3>
+            <p>资金曲线 = 各策略持仓市值序列；总收益、年化、最大回撤、夏普均基于该曲线计算，保证横向可比。</p>
+        </div>
+    </section>
+
+    <!-- 预测模型 -->
+    <section class="panel-3d reveal" id="model">
+        <h2>⑦ 预测模型原理</h2>
+        <div class="principle-card">
+            <h3>线性回归 LR</h3>
+            <p>对净值时间序列拟合 y = a·x + b，用最小二乘法求解斜率，外推下一交易日净值。</p>
+        </div>
+        <div class="principle-card">
+            <h3>蒙特卡洛模拟 (GBM)</h3>
+            <div class="formula">Sₜ₊₁ = Sₜ·(1 + μ·dt + σ·√dt·Z)</div>
+            <p>基于历史收益均值 μ 与标准差 σ，用几何布朗运动模拟上千条未来路径，输出预期净值与 5%/95% 置信区间、上涨概率。</p>
+        </div>
+        <div class="principle-card">
+            <h3>多模型集成</h3>
+            <p>对 MA / EMA / LR 三种预测按权重融合（默认 0.3/0.3/0.4），降低单一模型偏差，提升稳健性。</p>
+        </div>
+    </section>
+
+    <section class="panel-3d reveal" style="text-align:center;">
+        <p style="color:var(--text-muted);font-size:13px;">以上公式与算法由 FUND-OS 计算引擎实现，所有内容仅供学习与研究，不构成任何投资建议。</p>
+    </section>
+</main>
+
+<footer class="footer">
+    <div class="footer-bottom"><p>◆ FUND-OS 算法原理 · 数学驱动投资决策</p></div>
+</footer>
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+<style>
+.toc-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+.toc-item{ display:block; text-align:center; padding:14px; background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-dim); text-decoration:none; font-size:14px; transition:all .3s; }
+.toc-item:hover{ border-color:var(--gold); color:var(--gold); transform:translateY(-3px); }
+
+.principle-card{ background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); padding:22px 24px; margin-bottom:16px; transition:all .3s; border-left:3px solid var(--gold); }
+.principle-card:hover{ border-color:var(--border-hover); transform:translateX(4px); }
+.principle-card h3{ color:var(--text-bright); font-size:17px; margin-bottom:12px; }
+.principle-card p{ color:var(--text-dim); line-height:1.8; font-size:14px; }
+.formula{ background:rgba(240,176,32,.07); border:1px solid rgba(240,176,32,.2); border-radius:8px; padding:12px 16px; margin:12px 0; font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--gold-light); line-height:1.7; white-space:pre-line; }
+</style>
+</body>
+</html>

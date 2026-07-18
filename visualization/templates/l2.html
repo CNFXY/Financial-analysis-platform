@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FUND-OS · L2 行情深度</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<style>
+:root{
+  --gold:#f0b020; --gold-light:#ffd86e; --cyan:#00d4ff; --cyan-dim:#7fd6e8;
+  --up:#ff5b5b; --down:#2dd4bf; --flat:#8a9ab0;
+  --panel:rgba(12,22,40,.72); --panel-2:rgba(16,28,52,.6);
+  --border:rgba(240,176,32,.14); --border-h:rgba(240,176,32,.38);
+  --text:#e8e0d0; --dim:#8a9ab0; --muted:#5a6a80;
+  --radius:16px;
+}
+.l2-wrap{max-width:1320px;margin:0 auto;padding:26px 26px 70px;position:relative;z-index:2;}
+.l2-header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:20px;}
+.l2-title{font-size:26px;font-weight:800;letter-spacing:.5px;display:flex;align-items:center;gap:12px;color:var(--text);font-family:'JetBrains Mono',monospace;}
+.l2-title .grad{background:linear-gradient(135deg,var(--gold),var(--gold-light) 60%,var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.l2-status{display:flex;align-items:center;gap:14px;font-size:13px;color:var(--dim);}
+.l2-status .badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,212,255,.12);color:var(--cyan-dim);border:1px solid rgba(0,212,255,.32);padding:5px 12px;border-radius:20px;font-weight:600;font-family:'JetBrains Mono',monospace;}
+.l2-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
+.l2-input{background:var(--panel-2);border:1px solid var(--border);color:var(--text);padding:12px 16px;border-radius:12px;font-size:14px;outline:none;font-family:'JetBrains Mono',monospace;width:260px;}
+.l2-input:focus{border-color:var(--gold);}
+.l2-btn{background:linear-gradient(135deg,var(--gold),var(--gold-light));color:#1a1206;border:none;padding:12px 20px;border-radius:12px;font-weight:700;cursor:pointer;font-family:'JetBrains Mono',monospace;}
+.l2-btn:hover{filter:brightness(1.08);transform:translateY(-1px);}
+.l2-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;align-items:start;}
+@media(max-width:1000px){.l2-grid{grid-template-columns:1fr;}}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;backdrop-filter:blur(14px);box-shadow:0 8px 30px rgba(0,0,0,.35);position:relative;overflow:hidden;}
+.panel::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.5;}
+.panel h3{margin:0 0 14px;font-size:15px;color:var(--text);font-weight:700;font-family:'JetBrains Mono',monospace;}
+.sim-tag{font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(240,176,32,.14);color:var(--gold-light);border:1px solid var(--border-h);margin-left:8px;}
+.depth-table{width:100%;border-collapse:collapse;font-size:13px;font-family:'JetBrains Mono',monospace;}
+.depth-table th{color:var(--muted);font-weight:600;padding:8px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+.depth-table td{padding:7px 8px;text-align:right;border-bottom:1px solid rgba(240,176,32,.05);}
+.depth-table td:first-child,.depth-table th:first-child{text-align:left;}
+.depth-table .lvl{color:var(--dim);font-size:11px;}
+.depth-table .up{color:var(--up);font-weight:700;}
+.depth-table .down{color:var(--down);font-weight:700;}
+.depth-table .queue{color:var(--muted);font-size:11px;}
+.power-bar{display:flex;height:16px;border-radius:8px;overflow:hidden;margin:10px 0 4px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;}
+.power-bar .b{background:linear-gradient(90deg,rgba(255,91,91,.7),rgba(255,91,91,.35));display:flex;align-items:center;padding-left:8px;color:#fff;}
+.power-bar .s{background:linear-gradient(90deg,rgba(45,212,191,.35),rgba(45,212,191,.7));display:flex;align-items:center;justify-content:flex-end;padding-right:8px;color:#063;}
+.ticks{font-family:'JetBrains Mono',monospace;font-size:12px;max-height:420px;overflow-y:auto;}
+.tick-row{display:grid;grid-template-columns:70px 1fr 90px 50px;gap:6px;padding:5px 8px;border-bottom:1px solid rgba(240,176,32,.05);}
+.tick-row .px{text-align:right;font-weight:700;}
+.tick-row .vol{text-align:right;color:var(--dim);}
+.tick-row .sd{text-align:center;font-weight:700;border-radius:4px;}
+.tick-row .sd.B{background:rgba(255,91,91,.16);color:var(--up);}
+.tick-row .sd.S{background:rgba(45,212,191,.16);color:var(--down);}
+.sweep-box{margin-top:10px;font-size:12px;color:var(--dim);font-family:'JetBrains Mono',monospace;}
+.sweep-box b{color:var(--gold-light);}
+.empty{color:var(--muted);text-align:center;padding:40px 0;font-size:14px;}
+.l2-hint{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.7;}
+.l2-hint b{color:var(--dim);}
+</style>
+</head>
+<body>
+<nav class="navbar"><div class="nav-brand">FUND-OS</div><ul class="nav-menu"></ul></nav>
+
+<div class="l2-wrap">
+    <script>document.addEventListener("DOMContentLoaded", ()=>{ buildBreadcrumb([{label:'首页',href:'/'},{label:'L2深度行情',href:'/l2'}]); });</script>
+
+    <div class="l2-header">
+        <div class="l2-title"><span class="grad">L2 行情深度</span><span class="sim-tag" id="l2-src">检测中</span></div>
+        <div class="l2-status">
+            <span class="badge" id="l2-session"><span class="live"></span>实时</span>
+            <span id="l2-clock" style="font-family:'JetBrains Mono',monospace;color:var(--dim);">--:--:--</span>
+        </div>
+    </div>
+
+    <div class="l2-controls">
+        <input class="l2-input" id="l2-code" placeholder="输入代码查询 L2（如 600519、000001）" value="600519" />
+        <button class="l2-btn" id="l2-query">查询深度</button>
+        <span style="font-size:12px;color:var(--muted);">十档盘口 · 委托队列 · 逐笔成交 · 主动买卖力道</span>
+    </div>
+
+    <div class="l2-grid">
+        <div class="panel">
+            <h3 id="l2-depth-title">十档盘口（买卖各 10 档）<span class="sim-tag" id="l2-sim">--</span></h3>
+            <div id="l2-power"></div>
+            <div id="l2-depth-box"><div class="empty">请选择标的查看十档盘口</div></div>
+        </div>
+        <div class="panel">
+            <h3>逐笔成交（Tick 流）<span class="sim-tag" id="l2-tick-sim">--</span></h3>
+            <div class="sweep-box" id="l2-sweep"></div>
+            <div class="ticks" id="l2-ticks"><div class="empty">暂无逐笔数据</div></div>
+        </div>
+    </div>
+
+    <div class="l2-hint">
+        <b>REQ-04 L2 说明</b>：本页提供十档盘口（含委托队列 queue 累计挂单）、逐笔成交（B/S 方向）、
+        主动买卖力道（买/卖十档累计金额比）与扫单判定准确率指标。授权行情源实现 <code>/l2/depth</code>、<code>/l2/ticks</code>
+        契约时自动切换为真实 L2 数据；当前为仿真深度（页签标记「仿真」），整体链路可跑，便于机构验收。
+    </div>
+</div>
+
+<script>
+let l2Code = '600519';
+let tickLastId = 0;
+
+function fmt(n,d=2){ return (n==null||isNaN(n))?'--':Number(n).toFixed(d); }
+function cls(v){ return v>0?'up':(v<0?'down':'flat'); }
+
+async function loadDepth(){
+    if(!l2Code) return;
+    try{
+        const res = await fetch('/api/l2/depth?code='+encodeURIComponent(l2Code));
+        const d = await res.json();
+        if(d.error){ document.getElementById('l2-depth-box').innerHTML='<div class="empty">'+d.error+'</div>'; return; }
+        renderDepth(d);
+    }catch(e){}
+}
+function renderDepth(d){
+    document.getElementById('l2-sim').textContent = d.sim? '仿真' : '真实L2';
+    document.getElementById('l2-depth-title').childNodes[0].textContent = '十档盘口 · '+d.code+(d.name?(' '+d.name):'');
+    const bp = d.buy_power||0, sp = d.sell_power||0, tot = bp+sp;
+    const bPct = tot>0? (bp/tot*100):50, sPct = 100-bPct;
+    document.getElementById('l2-power').innerHTML =
+        `<div class="power-bar"><div class="b" style="width:${bPct}%">买 ${fmt(bPct,1)}%</div><div class="s" style="width:${sPct}%">${fmt(sPct,1)}% 卖</div></div>
+         <div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;">主动买卖力道 买:${(bp/10000).toFixed(1)}万 / 卖:${(sp/10000).toFixed(1)}万（占比 ${(d.active_ratio*100).toFixed(1)}%）</div>`;
+    let html = '<table class="depth-table"><thead><tr><th>档位</th><th>买价</th><th>买量</th><th>委托队列</th><th>卖价</th><th>卖量</th><th>委托队列</th></tr></thead><tbody>';
+    const bids = d.bids||[], asks = d.asks||[];
+    for(let i=0;i<10;i++){
+        const b = bids[i], a = asks[9-i];  // 买1..买10 与 卖10..卖1 对称展示
+        html += `<tr>
+            <td class="lvl">买${i+1}</td>
+            <td class="up">${b?fmt(b.price):'--'}</td>
+            <td>${b?b.vol:'--'}</td>
+            <td class="queue">${b?b.queue:'--'}</td>
+            <td class="down">${a?fmt(a.price):'--'}</td>
+            <td>${a?a.vol:'--'}</td>
+            <td class="queue">${a?a.queue:'--'}</td>
+        </tr>`;
+    }
+    html += '</tbody></table>';
+    document.getElementById('l2-depth-box').innerHTML = html;
+}
+
+async function loadTicks(){
+    if(!l2Code) return;
+    try{
+        const res = await fetch('/api/l2/ticks?code='+encodeURIComponent(l2Code)+'&last_id='+tickLastId+'&limit=20');
+        const d = await res.json();
+        const ticks = d.ticks||[];
+        if(ticks.length){ tickLastId = d.last_id||tickLastId; renderTicks(ticks); }
+        // 扫单准确率指标
+        const sr = await fetch('/api/l2/sweep_accuracy?code='+encodeURIComponent(l2Code));
+        const sv = await sr.json();
+        if(sv.samples>0){
+            document.getElementById('l2-sweep').innerHTML =
+                `扫单判定（基于真实逐笔大单）：样本 ${sv.samples} 笔，主买命中率 <b>${(sv.hit_rate*100).toFixed(1)}%</b>`;
+        }
+    }catch(e){}
+}
+function renderTicks(ticks){
+    document.getElementById('l2-tick-sim').textContent = '实时流';
+    const box = document.getElementById('l2-ticks');
+    if(box.querySelector('.empty')) box.innerHTML='';
+    // 新 tick 追加到顶部（最新在上）
+    ticks.forEach(t=>{
+        const row = document.createElement('div');
+        row.className='tick-row';
+        row.innerHTML = `<span>${t.ts}</span><span class="px ${t.side==='B'?'up':'down'}">${fmt(t.price)}</span><span class="vol">${t.vol}</span><span class="sd ${t.side}">${t.side==='B'?'主买':'主卖'}</span>`;
+        box.prepend(row);
+    });
+    // 限制 150 行
+    while(box.children.length>150) box.removeChild(box.lastChild);
+}
+
+function tickClock(){
+    document.getElementById('l2-clock').textContent = new Date().toLocaleTimeString('zh-CN',{hour12:false});
+}
+
+document.getElementById('l2-query').addEventListener('click',()=>{
+    l2Code = document.getElementById('l2-code').value.trim();
+    tickLastId = 0;
+    document.getElementById('l2-ticks').innerHTML='<div class="empty">暂无逐笔数据</div>';
+    loadDepth(); loadTicks();
+});
+document.getElementById('l2-code').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('l2-query').click(); });
+
+// 自动刷新（REQ-04 深度 1.5s 增量）
+function startLoop(){
+    loadDepth(); loadTicks();
+    setInterval(loadDepth, 1500);
+    setInterval(loadTicks, 1500);
+    tickClock(); setInterval(tickClock, 1000);
+}
+startLoop();
+</script>
+</body>
+</html>

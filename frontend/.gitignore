@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Build output
+dist/
+.DS_Store
+*.local
+
+# Editor
+.vscode/
+!.vscode/extensions.json
+.idea/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Auto-generated
+# 注意: unplugin-auto-import / unplugin-vue-components 生成的全局声明必须纳入版本控制。
+# 它们为 <script setup> 提供全局 ref/computed 等类型, 若缺失, 干净 `npm ci` 或 Docker 镜像下
+# `vue-tsc` 类型门禁会因找不到全局声明而变红。故此处不再忽略, 应随源码一起提交。
+# src/auto-imports.d.ts
+# src/components.d.ts

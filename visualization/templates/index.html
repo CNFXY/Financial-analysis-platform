@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FUND-OS · 智能基金估算系统</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<!-- 加载动画 -->
+<div id="loader-overlay">
+    <div class="loader-logo">FUND-OS</div>
+    <div class="loader-sub">INITIALIZING SYSTEM...</div>
+    <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<!-- 粒子背景 Canvas -->
+<canvas id="particle-canvas"></canvas>
+
+<!-- 鼠标光斑跟随 -->
+<div id="cursor-glow"></div>
+
+<!-- 装饰性浮动光球（3层） -->
+<div class="float-orb float-orb-1"></div>
+<div class="float-orb float-orb-2"></div>
+<div class="float-orb float-orb-3"></div>
+
+<nav class="navbar"><div class="nav-brand">FUND-OS</div><ul class="nav-menu"></ul></nav>
+
+<main class="container">
+    <!-- Hero 区域 -->
+    <section class="hero" id="hero-section">
+        <!-- 动态背景光效 -->
+        <div class="hero-bg-effects">
+            <div class="hero-gradient-orb hero-gold-orb"></div>
+            <div class="hero-gradient-orb hero-cyan-orb"></div>
+            <div class="hero-grid-overlay"></div>
+        </div>
+        
+        <div class="hero-badge">
+            <span class="badge badge-gold">◆ v4.2 视觉升级</span>
+        </div>
+        <h1 class="hero-title">
+            <span class="title-line">智能基金估算</span>
+            <span class="title-highlight">& 组合分析</span>
+        </h1>
+        <p class="hero-subtitle">基于多模型预测引擎 · 支持中国公募 / A股 / 海外基金 · 实时净值估算与收益分析</p>
+        
+        <!-- 核心数据指标 -->
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <div class="hero-stat-value counter-value" data-target="15">0</div>
+                <div class="hero-stat-label">技术指标</div>
+            </div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat">
+                <div class="hero-stat-value counter-value" data-target="6">0</div>
+                <div class="hero-stat-label">分析模型</div>
+            </div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat">
+                <div class="hero-stat-value counter-value" data-target="99">0</div>
+                <div class="hero-stat-label">% 准确率</div>
+            </div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat">
+                <div class="hero-stat-value counter-value" data-target="24">0</div>
+                <div class="hero-stat-label">小时实时</div>
+            </div>
+        </div>
+
+        <!-- CTA 按钮组 -->
+        <div class="hero-cta-group">
+            <a href="/fund_estimate" class="btn-3d btn-hero-primary">
+                <span>开始估算</span> →
+            </a>
+            <a href="/realtime" class="btn-3d ghost btn-hero-secondary">
+                📡 实时行情
+            </a>
+        </div>
+    </section>
+
+    <!-- 功能卡片 -->
+    <section class="cards-row reveal">
+        <div class="flip-card">
+            <div class="flip-card-inner">
+                <div class="flip-card-front">
+                    <div class="card-icon">◈</div>
+                    <h3>净值估算</h3>
+                    <p>集成移动平均、线性回归、指数平滑与持仓反推算法，多维度预测基金未来净值走势</p>
+                </div>
+                <div class="flip-card-back">
+                    <h3>进入估算</h3>
+                    <p>支持 MA / EMA / LR 三种趋势模型<br>+ 持仓股票反推法</p>
+                    <a href="/fund_estimate" class="btn-3d">立即开始 →</a>
+                </div>
+            </div>
+        </div>
+        <div class="flip-card">
+            <div class="flip-card-inner">
+                <div class="flip-card-front">
+                    <div class="card-icon" style="filter: drop-shadow(0 0 15px rgba(0,212,255,0.3));">◉</div>
+                    <h3>组合分析</h3>
+                    <p>实时计算持仓市值、收益率、最大回撤与夏普比率，可视化资产配置与收益分布</p>
+                </div>
+                <div class="flip-card-back">
+                    <h3>进入分析</h3>
+                    <p>CN基金 / A股 / 美股基金<br>多资产统一分析</p>
+                    <a href="/portfolio" class="btn-3d">立即开始 →</a>
+                </div>
+            </div>
+        </div>
+        <div class="flip-card">
+            <div class="flip-card-inner">
+                <div class="flip-card-front">
+                    <div class="card-icon" style="filter: drop-shadow(0 0 15px rgba(255,45,120,0.3));">◎</div>
+                    <h3>报告生成</h3>
+                    <p>一键生成市场概览、持仓报告与单基金深度分析HTML报告，支持JSON数据导出</p>
+                </div>
+                <div class="flip-card-back">
+                    <h3>进入报告</h3>
+                    <p>市场概览 / 组合报告<br>深度基金分析</p>
+                    <a href="/reports" class="btn-3d">立即开始 →</a>
+                </div>
+            </div>
+        </div>
+        <div class="flip-card">
+            <div class="flip-card-inner">
+                <div class="flip-card-front">
+                    <div class="card-icon" style="filter: drop-shadow(0 0 15px rgba(0,255,136,0.3));">◈</div>
+                    <h3>技术指标</h3>
+                    <p>MACD、RSI、KDJ、布林带等15+技术指标计算与多空信号综合研判</p>
+                </div>
+                <div class="flip-card-back">
+                    <h3>进入分析</h3>
+                    <p>MA / MACD / RSI / KDJ<br>布林带 / ATR / ADX</p>
+                    <a href="/tech_analysis" class="btn-3d">立即开始 →</a>
+                </div>
+            </div>
+        </div>
+        <div class="flip-card">
+            <div class="flip-card-inner">
+                <div class="flip-card-front">
+                    <div class="card-icon" style="filter: drop-shadow(0 0 15px rgba(255,165,0,0.3));">◉</div>
+                    <h3>风险分析</h3>
+                    <p>年化收益、最大回撤、夏普比率、相关性矩阵、卡玛比率等全面风险评估</p>
+                </div>
+                <div class="flip-card-back">
+                    <h3>进入分析</h3>
+                    <p>夏普 / 回撤 / 波动率<br>相关性 / 阿尔法贝塔</p>
+                    <a href="/risk_analysis" class="btn-3d">立即开始 →</a>
+                </div>
+            </div>
+        </div>
+        <div class="flip-card">
+            <div class="flip-card-inner">
+                <div class="flip-card-front">
+                    <div class="card-icon" style="filter: drop-shadow(0 0 15px rgba(0,212,255,0.3));">⚓</div>
+                    <h3>估值锚定</h3>
+                    <p>基于历史价格分位识别低估 / 合理 / 高估区间，测算支撑与压力锚点</p>
+                </div>
+                <div class="flip-card-back">
+                    <h3>进入锚定</h3>
+                    <p>历史分位 / 动量<br>支撑压力位测算</p>
+                    <a href="/valuation" class="btn-3d">立即开始 →</a>
+                </div>
+            </div>
+        </div>
+        <div class="flip-card">
+            <div class="flip-card-inner">
+                <div class="flip-card-front">
+                    <div class="card-icon" style="filter: drop-shadow(0 0 15px rgba(123,45,255,0.3));">📊</div>
+                    <h3>策略回测</h3>
+                    <p>双均线 / 定投 / 买入持有策略历史回测，对比收益、回撤与夏普比率</p>
+                </div>
+                <div class="flip-card-back">
+                    <h3>进入回测</h3>
+                    <p>均线交叉 / DCA<br>资金曲线对比</p>
+                    <a href="/backtest" class="btn-3d">立即开始 →</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 系统状态仪表盘 -->
+    <section class="panel-3d reveal">
+        <h2>系统状态监控</h2>
+        <div class="dashboard-grid" id="status-dashboard">
+            <div class="stat-card" onclick="window.location.href='/tech_analysis'" style="cursor: pointer;">
+                <div class="stat-icon">📊</div>
+                <div class="stat-label">技术指标模块</div>
+                <div class="stat-value" style="color: var(--success); font-size: 20px;">● 运行中</div>
+                <div class="stat-change up">15+ 指标可用</div>
+            </div>
+            <div class="stat-card" onclick="window.location.href='/risk_analysis'" style="cursor: pointer;">
+                <div class="stat-icon">⚠️</div>
+                <div class="stat-label">风险分析模块</div>
+                <div class="stat-value" style="color: var(--success); font-size: 20px;">● 运行中</div>
+                <div class="stat-change up">夏普/回撤/波动</div>
+            </div>
+            <div class="stat-card" id="tdx-status-card" onclick="window.location.href='/realtime'" style="cursor: pointer;">
+                <div class="stat-icon">📡</div>
+                <div class="stat-label">通达信实时行情</div>
+                <div class="stat-value" id="tdx-status-text" style="font-size: 20px;">检测中...</div>
+                <div class="stat-change" id="tdx-status-detail">点击查看实时行情</div>
+            </div>
+            <div class="stat-card" onclick="window.location.href='/portfolio'" style="cursor: pointer;">
+                <div class="stat-icon">💼</div>
+                <div class="stat-label">组合分析模块</div>
+                <div class="stat-value" style="color: var(--success); font-size: 20px;">● 运行中</div>
+                <div class="stat-change up">多资产支持</div>
+            </div>
+            <div class="stat-card" id="news-status-card" onclick="window.location.href='/news'" style="cursor: pointer;">
+                <div class="stat-icon">🌐</div>
+                <div class="stat-label">全球资讯源</div>
+                <div class="stat-value" id="news-status-text" style="font-size: 20px;">检测中...</div>
+                <div class="stat-change" id="news-status-detail">--</div>
+            </div>
+            <div class="stat-card" id="latency-status-card" onclick="window.location.href='/realtime'" style="cursor: pointer;">
+                <div class="stat-icon">⚡</div>
+                <div class="stat-label">行情延迟 / 数据源</div>
+                <div class="stat-value" id="latency-status-text" style="font-size: 20px;">检测中...</div>
+                <div class="stat-change" id="latency-status-detail">端到端延迟</div>
+            </div>
+            <div class="stat-card" onclick="window.location.href='/principles'" style="cursor: pointer;">
+                <div class="stat-icon">🧮</div>
+                <div class="stat-label">算法原理库</div>
+                <div class="stat-value" style="color: var(--success); font-size: 20px;">● 已公开</div>
+                <div class="stat-change up">15+ 指标公式</div>
+            </div>
+        </div>
+        <div class="hint" style="margin-top: 20px;">
+            💡 提示: 实时行情已接入通达信行情服务器（pytdx 直连），交易时段自动刷新报价、分时与五档盘口。
+            历史与基本面数据优先 Tushare Pro，未配置 Token 时回退演示数据。
+        </div>
+    </section>
+
+    <!-- 市场概览 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>市场概览</h2>
+            <div class="section-actions">
+                <span class="badge badge-info" id="market-update-time">更新中...</span>
+            </div>
+        </div>
+        <div class="loading" id="market-loading">正在加载市场数据...</div>
+        <div class="table-wrapper" id="market-table" style="display:none;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>代码</th>
+                        <th>名称</th>
+                        <th>市场</th>
+                        <th>最新净值</th>
+                        <th>年化收益</th>
+                        <th>最大回撤</th>
+                        <th>夏普比率</th>
+                        <th>估算变动</th>
+                        <th>趋势</th>
+                    </tr>
+                </thead>
+                <tbody id="market-tbody"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- 快速净值估算 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>快速净值估算</h2>
+            <div class="section-actions">
+                <span class="badge badge-gold">⚡ 实时计算</span>
+            </div>
+        </div>
+        
+        <div class="quick-estimate-form">
+            <div class="form-inline">
+                <div class="form-group" style="flex: 2; min-width: 200px;">
+                    <label>基金代码</label>
+                    <input type="text" id="quick-code" placeholder="如 510300.SH 或 SPY" value="510300.SH">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>市场类型</label>
+                    <select id="quick-type">
+                        <option value="cn">中国基金</option>
+                        <option value="us">海外基金</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>估算方法</label>
+                    <select id="quick-method">
+                        <option value="lr">线性回归</option>
+                        <option value="ma">移动平均</option>
+                        <option value="ema">指数移动平均</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 0 0 auto; align-self: flex-end;">
+                    <button class="btn-3d" onclick="quickEstimate()">
+                        <span>执行估算</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 估算结果卡片 -->
+        <div id="quick-result-cards" style="display: none; margin-top: 24px;">
+            <div class="result-cards">
+                <div class="result-card">
+                    <div class="label">当前净值</div>
+                    <div class="value" id="quick-current-nav">--</div>
+                </div>
+                <div class="result-card">
+                    <div class="label">预测净值</div>
+                    <div class="value" id="quick-pred-nav">--</div>
+                </div>
+                <div class="result-card">
+                    <div class="label">预测涨跌幅</div>
+                    <div class="value" id="quick-pred-change">--</div>
+                </div>
+                <div class="result-card">
+                    <div class="label">置信度</div>
+                    <div class="value" id="quick-confidence">--</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="quick-result" class="result-box" style="margin-top: 16px;"></div>
+        
+        <!-- 趋势图表 -->
+        <div class="chart-container" style="margin-top: 24px;">
+            <div class="chart-header">
+                <div class="chart-title">📈 净值趋势预测</div>
+                <div class="chart-actions">
+                    <button class="chart-btn active" onclick="setChartRange(this, 30)">30天</button>
+                    <button class="chart-btn" onclick="setChartRange(this, 60)">60天</button>
+                    <button class="chart-btn" onclick="setChartRange(this, 90)">90天</button>
+                </div>
+            </div>
+            <canvas id="quickChart" style="max-height: 350px;"></canvas>
+        </div>
+    </section>
+
+    <!-- 特色功能介绍 -->
+    <section class="features-section reveal">
+        <div class="section-header" style="text-align: center; margin-bottom: 40px;">
+            <h2 style="justify-content: center;">为什么选择 FUND-OS</h2>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3>精准预测</h3>
+                <p>多模型融合算法，结合移动平均、线性回归、指数平滑等多种预测方法，提供更准确的净值估算</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>实时计算</h3>
+                <p>高性能计算引擎，毫秒级响应速度，支持实时数据更新和动态指标计算</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>风险控制</h3>
+                <p>全面的风险评估体系，夏普比率、最大回撤、波动率等多维度风险指标</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>可视化分析</h3>
+                <p>丰富的图表展示，直观呈现数据趋势和分析结果，让决策更有依据</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>多市场支持</h3>
+                <p>支持中国公募基金、A股、美股ETF等多市场品种，一站式投资分析</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📋</div>
+                <h3>专业报告</h3>
+                <p>一键生成专业分析报告，支持多种格式导出，满足不同场景需求</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🌐</div>
+                <h3>全球资讯</h3>
+                <p>实时聚合 MarketWatch / CNBC 等全球财经媒体，覆盖宏观股市科技商品</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🧮</div>
+                <h3>算法原理</h3>
+                <p>透明公开所有技术指标与估值回测算法的数学公式与适用场景</p>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <div class="footer-content">
+        <div class="footer-brand">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; color: var(--gold);">FUND-OS</span>
+            <p style="margin-top: 8px; font-size: 12px;">智能基金估算与组合分析系统</p>
+        </div>
+        <div class="footer-links">
+            <div class="footer-link-group">
+                <h4>功能模块</h4>
+                <a href="/fund_estimate">基金估算</a>
+                <a href="/tech_analysis">技术指标</a>
+                <a href="/risk_analysis">风险分析</a>
+            </div>
+            <div class="footer-link-group">
+                <h4>分析工具</h4>
+                <a href="/portfolio">组合分析</a>
+                <a href="/reports">报告中心</a>
+            </div>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>◆ FUND-OS 基金估算系统 · 数据仅供参考，不构成投资建议</p>
+    </div>
+</footer>
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+<script>
+// 数字滚动动画
+function animateCounters() {
+    const counters = document.querySelectorAll('.counter-value');
+    counters.forEach(counter => {
+        const target = parseInt(counter.getAttribute('data-target'));
+        const duration = 2000;
+        const step = target / (duration / 16);
+        let current = 0;
+        
+        const updateCounter = () => {
+            current += step;
+            if (current < target) {
+                counter.textContent = Math.floor(current);
+                requestAnimationFrame(updateCounter);
+            } else {
+                counter.textContent = target;
+            }
+        };
+        
+        updateCounter();
+    });
+}
+
+// 页面加载完成后启动动画
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        animateCounters();
+    }, 1000);
+});
+
+// 图表范围切换
+let quickChartRange = 30;
+function setChartRange(btn, days) {
+    document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    quickChartRange = days;
+    // 如果已有图表数据，可以重新渲染
+    if (typeof quickChartInstance !== 'undefined' && quickChartInstance) {
+        // 重新获取数据并渲染
+        quickEstimate();
+    }
+}
+
+// 通达信实时行情状态检测
+(async function checkTdxStatus() {
+    try {
+        const res = await fetch('/api/tdx/status');
+        const data = await res.json();
+        const textEl = document.getElementById('tdx-status-text');
+        const detailEl = document.getElementById('tdx-status-detail');
+        if (data.connected) {
+            textEl.style.color = 'var(--success)';
+            textEl.textContent = '● 实时在线';
+            detailEl.textContent = '行情服务器: ' + (data.best_server || '已连接');
+            detailEl.className = 'stat-change up';
+        } else if (data.pytdx_installed) {
+            textEl.style.color = 'var(--warning)';
+            textEl.textContent = '○ 行情离线';
+            detailEl.textContent = '盘后/网络受限，开盘自动刷新';
+            detailEl.className = 'stat-change';
+        } else {
+            textEl.style.color = 'var(--danger)';
+            textEl.textContent = '○ 未安装';
+            detailEl.textContent = 'pip install pytdx';
+            detailEl.className = 'stat-change down';
+        }
+    } catch (e) {
+        const textEl = document.getElementById('tdx-status-text');
+        textEl.style.color = 'var(--warning)';
+        textEl.textContent = '⚠ 检测失败';
+    }
+})();
+
+// 全球资讯源状态检测
+(async function checkNewsSource() {
+    const textEl = document.getElementById('news-status-text');
+    const detailEl = document.getElementById('news-status-detail');
+    if (!textEl) return;
+    try {
+        const res = await fetch('/api/news/global?limit=3');
+        const data = await res.json();
+        if (data.is_demo) {
+            textEl.style.color = 'var(--warning)';
+            textEl.textContent = '○ 演示数据';
+            detailEl.textContent = '配置网络后接入实时';
+            detailEl.className = 'stat-change';
+        } else {
+            textEl.style.color = 'var(--success)';
+            textEl.textContent = '● 实时';
+            detailEl.textContent = (data.sources || []).join(' · ') || '已接入';
+            detailEl.className = 'stat-change up';
+        }
+    } catch (e) {
+        textEl.style.color = 'var(--warning)';
+        textEl.textContent = '⚠ 检测失败';
+    }
+})();
+
+// REQ-07: 首页常驻行情延迟 / 数据源状态（端到端延迟 ms + 降级强提醒）
+(async function checkLatency() {
+    const textEl = document.getElementById('latency-status-text');
+    const detailEl = document.getElementById('latency-status-detail');
+    if (!textEl) return;
+    async function tick() {
+        try {
+            const res = await fetch('/api/tdx/status');
+            const s = await res.json();
+            const ms = (s.latency_ewma_ms != null) ? s.latency_ewma_ms : (s.latency_ms != null ? s.latency_ms : null);
+            const lv = s.latency_level || 'unknown';
+            const colorMap = { good:'var(--success)', warn:'var(--warning)', bad:'var(--danger)', unknown:'var(--dim)' };
+            textEl.style.color = colorMap[lv] || 'var(--dim)';
+            textEl.textContent = (ms != null) ? ('● ' + Math.round(ms) + ' ms') : '○ 无数据';
+            let src = s.active_source || (s.data_source||'');
+            if (s.degraded) src += ' (降级)';
+            detailEl.textContent = '数据源: ' + (src || '--');
+            detailEl.className = 'stat-change ' + (s.degraded ? 'down' : 'up');
+        } catch (e) {
+            textEl.style.color = 'var(--warning)';
+            textEl.textContent = '⚠ 检测失败';
+        }
+    }
+    await tick();
+    setInterval(tick, 5000);
+})();
+</script>
+
+<style>
+/* ============================================
+   Hero 区域 v4.2 全新视觉效果
+   ============================================ */
+.hero {
+    text-align: center;
+    padding: 100px 20px 70px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* ---- Hero 动态背景层 ---- */
+.hero-bg-effects {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.hero-gradient-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+}
+.hero-gold-orb {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(240, 176, 32, 0.12) 0%, transparent 70%);
+    top: -15%; left: -10%;
+    animation: heroOrbFloat1 12s ease-in-out infinite;
+}
+.hero-cyan-orb {
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(0, 212, 255, 0.08) 0%, transparent 70%);
+    bottom: -10%; right: -8%;
+    animation: heroOrbFloat2 16s ease-in-out infinite;
+}
+
+/* Hero 内部网格 */
+.hero-grid-overlay {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(240, 176, 32, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(240, 176, 32, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 60%, transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 60%, transparent 100%);
+}
+
+@keyframes heroOrbFloat1 {
+    0%, 100% { transform: translate(0, 0); }
+    33% { transform: translate(30px, 20px); }
+    66% { transform: translate(-20px, -15px); }
+}
+@keyframes heroOrbFloat2 {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-25px, -20px); }
+}
+
+/* ---- 标题样式（渐变 + 光晕） ---- */
+.hero-title {
+    font-size: clamp(28px, 5vw, 44px);
+    line-height: 1.25;
+    color: #fff;
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+}
+
+.title-line {
+    position: relative;
+    letter-spacing: 3px;
+    font-weight: 800;
+}
+
+.title-highlight {
+    background: linear-gradient(135deg, #f0b020, #ffd666, #f0b020);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmerText 4s linear infinite;
+    filter: drop-shadow(0 0 30px rgba(240, 176, 32, 0.3));
+}
+
+@keyframes shimmerText {
+    to { background-position: 200% center; }
+}
+
+/* ---- Hero 徽章升级 ---- */
+.hero-badge {
+    margin-bottom: 24px;
+}
+.badge-gold {
+    background: linear-gradient(135deg, rgba(240, 176, 32, 0.15), rgba(240, 176, 32, 0.05));
+    color: #f0b020;
+    border: 1px solid rgba(240, 176, 32, 0.3);
+    box-shadow: 0 0 20px rgba(240, 176, 32, 0.1), inset 0 0 20px rgba(240, 176, 32, 0.05);
+}
+
+/* ---- 副标题 ---- */
+.hero-subtitle {
+    font-size: 16px;
+    color: var(--text-dim, #8a9ab0);
+    max-width: 600px;
+    margin: 0 auto 36px;
+    animation: fadeInUp 1s ease 0.3s forwards;
+    opacity: 0;
+    line-height: 1.8;
+}
+
+/* ---- 数据指标 ---- */
+.hero-stats {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    margin-top: 36px;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 1;
+}
+
+.hero-stat {
+    text-align: center;
+    padding: 16px 24px;
+    border-radius: 14px;
+    background: rgba(12, 22, 40, 0.45);
+    border: 1px solid rgba(240, 176, 32, 0.08);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.hero-stat:hover {
+    transform: translateY(-4px);
+    border-color: rgba(240, 176, 32, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(240, 176, 32, 0.05);
+}
+
+.hero-stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--gold, #f0b020), var(--gold-light, #ffd666));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.2;
+}
+
+.hero-stat-label {
+    font-size: 12px;
+    color: var(--text-muted, #5a6a80);
+    margin-top: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.hero-stat-divider {
+    width: 1px;
+    height: 55px;
+    background: linear-gradient(180deg, transparent, var(--gold, #f0b020), transparent);
+    opacity: 0.25;
+}
+
+/* ---- CTA 按钮组 ---- */
+.hero-cta-group {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin-top: 40px;
+    flex-wrap: wrap;
+}
+
+.btn-hero-primary {
+    padding: 14px 36px !important;
+    font-size: 15px !important;
+    background: linear-gradient(135deg, #f0b020, #d4940c) !important;
+    box-shadow: 0 4px 24px rgba(240, 176, 32, 0.35) !important;
+    transition: all 0.3s ease !important;
+}
+.btn-hero-primary:hover {
+    transform: translateY(-3px) scale(1.02) !important;
+    box-shadow: 0 8px 36px rgba(240, 176, 32, 0.5) !important;
+}
+.btn-hero-secondary {
+    padding: 14px 28px !important;
+    font-size: 15px !important;
+}
+
+/* Section Header */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.section-header h2 {
+    margin-bottom: 0;
+}
+
+.section-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+/* 特色功能 */
+.features-section {
+    padding: 40px 0;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+}
+
+.feature-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    text-align: center;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+}
+
+.feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--gold), var(--cyan));
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-8px);
+    border-color: var(--border-hover);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.feature-card:hover::before {
+    opacity: 1;
+}
+
+.feature-icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 0 20px rgba(240, 176, 32, 0.2));
+}
+
+.feature-card h3 {
+    font-size: 20px;
+    color: var(--text-bright);
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.feature-card p {
+    font-size: 14px;
+    color: var(--text-dim);
+    line-height: 1.7;
+}
+
+/* 页脚增强 */
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    max-width: 1200px;
+    margin: 0 auto 30px;
+    padding: 0 40px;
+    flex-wrap: wrap;
+    gap: 40px;
+}
+
+.footer-brand {
+    flex: 1;
+    min-width: 200px;
+}
+
+.footer-links {
+    display: flex;
+    gap: 60px;
+    flex-wrap: wrap;
+}
+
+.footer-link-group h4 {
+    color: var(--text-bright);
+    font-size: 14px;
+    margin-bottom: 16px;
+    font-weight: 600;
+}
+
+.footer-link-group a {
+    display: block;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 13px;
+    margin-bottom: 10px;
+    transition: color 0.3s ease;
+}
+
+.footer-link-group a:hover {
+    color: var(--gold);
+}
+
+.footer-bottom {
+    border-top: 1px solid rgba(240, 176, 32, 0.06);
+    padding-top: 24px;
+    text-align: center;
+}
+
+/* 快速估算表单 */
+.quick-estimate-form .form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.quick-estimate-form .form-group label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .hero-stats {
+        gap: 20px;
+    }
+    
+    .hero-stat-value {
+        font-size: 32px;
+    }
+    
+    .hero-stat-divider {
+        display: none;
+    }
+    
+    .footer-content {
+        padding: 0 20px;
+    }
+    
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+</body>
+</html>

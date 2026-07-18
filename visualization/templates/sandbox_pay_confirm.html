@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>支付确认 · FUND-OS</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+         background:linear-gradient(180deg,#0b1020,#0a0e1a); color:#e9edf5; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .card { width:340px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:18px; padding:28px 24px; text-align:center;
+          box-shadow:0 20px 60px rgba(0,0,0,.5); }
+  .badge { display:inline-block; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700; margin-bottom:14px; }
+  .badge.wechat { background:rgba(7,193,96,.15); color:#07c160; border:1px solid rgba(7,193,96,.35); }
+  .badge.alipay { background:rgba(22,119,255,.15); color:#1677ff; border:1px solid rgba(22,119,255,.35); }
+  .plan { font-size:20px; font-weight:800; margin:6px 0; }
+  .amount { font-size:34px; font-weight:900; color:#d4af37; margin:10px 0 4px; }
+  .amount small { font-size:14px; color:#9aa3b2; font-weight:400; }
+  .desc { color:#9aa3b2; font-size:13px; margin-bottom:20px; }
+  .btn { display:block; width:100%; padding:14px; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; color:#fff; transition:.2s; }
+  .btn.wechat { background:linear-gradient(180deg,#07c160,#04a049); }
+  .btn.alipay { background:linear-gradient(180deg,#1677ff,#0e5fcc); }
+  .btn:hover { transform:translateY(-1px); filter:brightness(1.05); }
+  .btn:disabled { opacity:.6; cursor:default; transform:none; }
+  .tip { margin-top:16px; font-size:12px; color:#6b7280; line-height:1.6; }
+  .ok { color:#07c160; font-weight:700; font-size:18px; margin:18px 0; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge {{ 'wechat' if channel=='wechat' else 'alipay' }}">
+      🧪 沙箱模拟 · {{ '微信支付' if channel=='wechat' else '支付宝' }}
+    </div>
+    <div class="plan">{{ plan_name }}</div>
+    <div class="amount">¥{{ amount }}<small> / 应付</small></div>
+    <div class="desc">这是演示环境生成的模拟收款页面。<br/>点击下方按钮即模拟"用户已支付"，触发回调并升级订阅。</div>
+
+    <button id="payBtn" class="btn {{ 'wechat' if channel=='wechat' else 'alipay' }}"
+            onclick="doPay()">
+      确认支付 ¥{{ amount }}
+    </button>
+
+    <div class="tip">
+      沙箱环境不会真实扣款。<br/>
+      生产环境此处将替换为微信/支付宝官方收银台。
+    </div>
+    <div id="msg"></div>
+  </div>
+
+<script>
+const ORDER_ID = "{{ order_id }}";
+const CHANNEL = "{{ channel }}";
+
+async function doPay(){
+  const btn = document.getElementById('payBtn');
+  btn.disabled = true;
+  btn.textContent = '处理中...';
+  try{
+    const r = await fetch('/sandbox/pay-confirm', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({order_id: ORDER_ID, ch: CHANNEL})
+    });
+    const d = await r.json();
+    const msg = document.getElementById('msg');
+    if(d.success){
+      msg.innerHTML = '<div class="ok">✓ 支付成功！订阅已升级</div>';
+      setTimeout(()=>{ window.close(); }, 1200);
+    } else {
+      msg.textContent = '失败：' + (d.reason || '未知错误');
+      btn.disabled = false; btn.textContent = '确认支付 ¥{{ amount }}';
+    }
+  }catch(e){
+    document.getElementById('msg').textContent = '异常：' + e.message;
+    btn.disabled = false; btn.textContent = '确认支付 ¥{{ amount }}';
+  }
+}
+</script>
+</body>
+</html>

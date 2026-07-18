@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>基金估算 · FUND-OS</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div id="loader-overlay">
+    <div class="loader-logo">FUND-OS</div>
+    <div class="loader-sub">LOADING ESTIMATION ENGINE...</div>
+    <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<canvas id="particle-canvas"></canvas>
+<div id="cursor-glow"></div>
+
+<div class="float-orb float-orb-1"></div>
+<div class="float-orb float-orb-2"></div>
+
+<nav class="navbar"><div class="nav-brand">FUND-OS</div><ul class="nav-menu"></ul></nav>
+
+<main class="container">
+    <script>document.addEventListener("DOMContentLoaded", ()=>{ buildBreadcrumb([{label:'首页',href:'/'},{label:'基金估算',href:'/fund_estimate'}]); });</script>
+
+    <!-- 页面标题 -->
+    <section class="hero" style="padding: 40px 20px 30px;">
+        <div style="margin-bottom: 16px;">
+            <span class="badge badge-gold">◆ 净值预测引擎</span>
+        </div>
+        <h1>基金净值 <span class="highlight">智能估算</span></h1>
+        <p>多模型融合预测 · 趋势分析 · 蒙特卡洛模拟 · 布林带通道分析</p>
+    </section>
+
+    <!-- 参数配置 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>参数配置</h2>
+            <div class="section-actions">
+                <span class="badge badge-info" id="data-source-badge">数据源: 检测中...</span>
+            </div>
+        </div>
+        
+        <div class="form-grid">
+            <div class="form-group" style="position: relative;">
+                <label>📌 基金代码</label>
+                <input type="text" id="fund-code" placeholder="输入代码或名称搜索..." value="510300.SH" 
+                       oninput="searchFunds(this.value)" onfocus="searchFunds(this.value)" onblur="hideSearchResults()">
+                <div id="fund-search-results" class="search-dropdown" style="display: none;"></div>
+            </div>
+            <div class="form-group">
+                <label>📛 基金名称（自动填充）</label>
+                <input type="text" id="fund-name" placeholder="选择搜索结果后自动显示" readonly>
+            </div>
+            <div class="form-group">
+                <label>🌍 市场类型</label>
+                <select id="fund-type">
+                    <option value="cn">中国基金 / A股</option>
+                    <option value="us">海外基金</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>📊 估算方法</label>
+                <select id="fund-method">
+                    <option value="ensemble">🌟 多模型融合（推荐）</option>
+                    <option value="lr">线性回归 (LR)</option>
+                    <option value="ema">指数移动平均 (EMA)</option>
+                    <option value="wma">加权移动平均 (WMA)</option>
+                    <option value="ma">简单移动平均 (MA)</option>
+                    <option value="momentum">动量趋势</option>
+                    <option value="volatility">波动率调整</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>📅 历史天数</label>
+                <input type="number" id="fund-days" value="30" min="5" max="120">
+            </div>
+        </div>
+        
+        <div class="data-source-info" style="margin-top: 20px; padding: 16px; background: rgba(240, 176, 32, 0.05); border-radius: var(--radius-sm); border: 1px solid rgba(240, 176, 32, 0.1);">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <span style="font-size: 13px; color: var(--text-dim);">数据源优先级:</span>
+                <span class="badge badge-success">Tushare Pro</span>
+                <span style="color: var(--text-muted);">></span>
+                <span class="badge badge-info">通达信本地</span>
+                <span style="color: var(--text-muted);">></span>
+                <span class="badge badge-warning">模拟数据</span>
+                <span id="tdx-estimate-status" style="margin-left: auto; font-size: 12px; color: var(--text-muted);"></span>
+            </div>
+        </div>
+        
+        <div style="margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap;">
+            <button class="btn-3d" onclick="runEstimate()">
+                <span>🚀 执行估算</span>
+            </button>
+            <button class="btn-3d btn-outline" onclick="loadFundHistory()">
+                <span>📈 查看历史数据</span>
+            </button>
+        </div>
+    </section>
+
+    <!-- 估算结果 -->
+    <section class="panel-3d reveal" id="estimate-result-panel" style="display:none;">
+        <div class="section-header">
+            <h2>估算结果</h2>
+            <div class="section-actions">
+                <span class="badge badge-success" id="estimate-time">--</span>
+            </div>
+        </div>
+        
+        <!-- 核心指标卡片 -->
+        <div class="dashboard-grid" id="estimate-cards">
+            <div class="stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-label">当前净值</div>
+                <div class="stat-value" id="current-nav">--</div>
+                <div class="stat-change" id="current-change">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-label">预测净值</div>
+                <div class="stat-value" id="predicted-nav">--</div>
+                <div class="stat-change" id="predicted-change">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-label">预测涨跌幅</div>
+                <div class="stat-value" id="pred-return">--</div>
+                <div class="stat-change" id="pred-direction">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-label">置信度</div>
+                <div class="stat-value" id="confidence">--</div>
+                <div class="stat-change up">模型评分</div>
+            </div>
+        </div>
+        
+        <!-- 趋势图表 -->
+        <div class="chart-container" style="margin-top: 24px;">
+            <div class="chart-header">
+                <div class="chart-title">📈 净值趋势与预测</div>
+                <div class="chart-actions">
+                    <button class="chart-btn active" onclick="setEstimateChartRange(this, 30)">30天</button>
+                    <button class="chart-btn" onclick="setEstimateChartRange(this, 60)">60天</button>
+                    <button class="chart-btn" onclick="setEstimateChartRange(this, 90)">90天</button>
+                </div>
+            </div>
+            <canvas id="estimateChart" style="max-height: 350px;"></canvas>
+        </div>
+        
+        <!-- 详细数据 -->
+        <div class="result-box" style="margin-top: 24px;" id="estimate-detail">
+            <!-- 详细结果将在这里显示 -->
+        </div>
+    </section>
+
+    <!-- K线图 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>🕯️ K线图分析</h2>
+            <div class="section-actions">
+                <button class="chart-btn" onclick="loadKline(30)">30天</button>
+                <button class="chart-btn active" onclick="loadKline(60)">60天</button>
+                <button class="chart-btn" onclick="loadKline(120)">120天</button>
+            </div>
+        </div>
+        
+        <!-- K线数据概览 -->
+        <div class="dashboard-grid" id="kline-stats" style="margin-bottom: 20px;">
+            <div class="stat-card">
+                <div class="stat-icon">📈</div>
+                <div class="stat-label">最新价</div>
+                <div class="stat-value" id="kline-close">--</div>
+                <div class="stat-change" id="kline-change">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-label">最高价</div>
+                <div class="stat-value" id="kline-high">--</div>
+                <div class="stat-change up">周期最高</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📉</div>
+                <div class="stat-label">最低价</div>
+                <div class="stat-value" id="kline-low">--</div>
+                <div class="stat-change down">周期最低</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📦</div>
+                <div class="stat-label">成交量</div>
+                <div class="stat-value" id="kline-volume">--</div>
+                <div class="stat-change">日均</div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-header">
+                <div class="chart-title">📊 K线走势图</div>
+                <div class="chart-actions">
+                    <span class="badge badge-info" id="kline-count">-- 根K线</span>
+                </div>
+            </div>
+            <canvas id="klineChart" style="max-height: 400px;"></canvas>
+        </div>
+    </section>
+
+    <!-- 蒙特卡洛模拟 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>🎲 蒙特卡洛模拟</h2>
+            <div class="section-actions">
+                <span class="badge badge-info">风险模拟</span>
+            </div>
+        </div>
+        
+        <div class="mc-config" style="margin-bottom: 24px;">
+            <div class="form-inline">
+                <div class="form-group" style="flex: 1; min-width: 150px;">
+                    <label>📅 模拟天数</label>
+                    <input type="number" id="mc-days" value="30" min="5" max="90">
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 150px;">
+                    <label>🔄 模拟次数</label>
+                    <input type="number" id="mc-simulations" value="1000" min="100" max="10000" step="100">
+                </div>
+                <div class="form-group" style="flex: 0 0 auto; align-self: flex-end;">
+                    <button class="btn-3d btn-outline" onclick="runMonteCarlo()">
+                        <span>运行模拟</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 模拟结果统计 -->
+        <div id="mc-stats" style="display: none; margin-bottom: 24px;">
+            <div class="result-cards">
+                <div class="result-card">
+                    <div class="label">预期收益</div>
+                    <div class="value" id="mc-expected">--</div>
+                </div>
+                <div class="result-card">
+                    <div class="label">最佳情景</div>
+                    <div class="value up" id="mc-best">--</div>
+                </div>
+                <div class="result-card">
+                    <div class="label">最差情景</div>
+                    <div class="value down" id="mc-worst">--</div>
+                </div>
+                <div class="result-card">
+                    <div class="label">VaR (95%)</div>
+                    <div class="value" id="mc-var">--</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="mc-result" class="result-box"></div>
+        
+        <div class="chart-container" id="mc-chart-wrapper" style="display:none; margin-top: 24px;">
+            <div class="chart-header">
+                <div class="chart-title">📊 蒙特卡洛模拟路径</div>
+                <div class="chart-actions">
+                    <span class="badge badge-gold" id="mc-sim-count">-- 次模拟</span>
+                </div>
+            </div>
+            <canvas id="mcChart" style="max-height: 350px;"></canvas>
+        </div>
+    </section>
+
+    <!-- 布林带分析 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>📊 布林带分析</h2>
+            <div class="section-actions">
+                <span class="badge badge-info">通道分析</span>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 24px;">
+            <button class="btn-3d btn-outline" onclick="runBollinger()">
+                <span>执行布林带分析</span>
+            </button>
+        </div>
+        
+        <!-- 布林带结果 -->
+        <div id="bb-stats" style="display: none; margin-bottom: 24px;">
+            <div class="result-cards">
+                <div class="result-card">
+                    <div class="label">上轨压力</div>
+                    <div class="value" id="bb-upper">--</div>
+                </div>
+                <div class="result-card">
+                    <div class="label">中轨均线</div>
+                    <div class="value" id="bb-middle">--</div>
+                </div>
+                <div class="result-card">
+                    <div class="label">下轨支撑</div>
+                    <div class="value" id="bb-lower">--</div>
+                </div>
+                <div class="result-card">
+                    <div class="label">带宽</div>
+                    <div class="value" id="bb-width">--</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="bb-result" class="result-box"></div>
+        
+        <div class="chart-container" id="bb-chart-wrapper" style="display:none; margin-top: 24px;">
+            <div class="chart-header">
+                <div class="chart-title">📈 布林带通道</div>
+            </div>
+            <canvas id="bbChart" style="max-height: 350px;"></canvas>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <p>◆ FUND-OS 基金估算系统 · 数据仅供参考，不构成投资建议</p>
+</footer>
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+<script>
+// 估算图表范围
+let estimateChartRange = 30;
+
+function setEstimateChartRange(btn, days) {
+    document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    estimateChartRange = days;
+    // 如果已有数据，重新渲染
+    if (typeof estimateChartInstance !== 'undefined' && estimateChartInstance) {
+        runEstimate();
+    }
+}
+
+// 加载基金历史数据
+async function loadFundHistory() {
+    const code = document.getElementById('fund-code').value;
+    const type = document.getElementById('fund-type').value;
+    const days = document.getElementById('fund-days').value;
+    
+    try {
+        const res = await fetch('/api/fund/history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, type, days })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            // 显示结果面板
+            document.getElementById('estimate-result-panel').style.display = 'block';
+            
+            // 更新时间
+            document.getElementById('estimate-time').textContent = 
+                '更新于 ' + new Date().toLocaleTimeString();
+            
+            // 渲染图表
+            renderEstimateChart(data.history);
+        }
+    } catch (e) {
+        console.error('加载历史数据失败:', e);
+    }
+}
+
+// 检测数据源状态
+(async function checkDataSource() {
+    try {
+        const res = await fetch('/api/tdx/status');
+        const data = await res.json();
+        const badge = document.getElementById('data-source-badge');
+        
+        if (data.available) {
+            badge.textContent = '数据源: 通达信就绪';
+            badge.className = 'badge badge-success';
+        } else {
+            badge.textContent = '数据源: 模拟模式';
+            badge.className = 'badge badge-warning';
+        }
+    } catch (e) {
+        document.getElementById('data-source-badge').textContent = '数据源: 检测中...';
+    }
+})();
+
+// ==================== 基金搜索功能 ====================
+let searchTimeout = null;
+
+function searchFunds(query) {
+    clearTimeout(searchTimeout);
+
+    if (!query || query.length < 1) {
+        hideSearchResults();
+        return;
+    }
+
+    searchTimeout = setTimeout(async () => {
+        try {
+            const res = await fetch(`/api/fund/search?q=${encodeURIComponent(query)}&scope=all`);
+            const data = await res.json();
+
+            if (data.results && data.results.length > 0) {
+                showSearchResults(data.results);
+            } else {
+                hideSearchResults();
+            }
+        } catch (e) {
+            console.error('搜索失败:', e);
+        }
+    }, 300);
+}
+
+function showSearchResults(results) {
+    const container = document.getElementById('fund-search-results');
+    let html = '';
+
+    results.forEach((fund) => {
+        const name = (fund.name || '').replace(/'/g, '');
+        html += `
+            <div class="search-item" onmousedown="selectFund('${fund.code}', '${name}')">
+                <div class="search-row">
+                    <span class="search-code glow-gold">${fund.code}</span>
+                    <span class="search-kind">${fund.kind || '基金'}</span>
+                </div>
+                <div class="search-name">${fund.name}</div>
+                <div class="search-detail">${fund.detail || ''}</div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+    container.style.display = 'block';
+}
+
+function hideSearchResults() {
+    setTimeout(() => {
+        const el = document.getElementById('fund-search-results');
+        if (el) el.style.display = 'none';
+    }, 200);
+}
+
+function selectFund(code, name) {
+    document.getElementById('fund-code').value = code;
+    const nameEl = document.getElementById('fund-name');
+    if (nameEl) nameEl.value = name || '';
+    hideSearchResults();
+    // 自动加载K线图
+    loadKline(60);
+}
+
+// ==================== K线图功能 ====================
+let klineChartInstance = null;
+let currentKlineDays = 60;
+
+async function loadKline(days) {
+    currentKlineDays = days || 60;
+    
+    // 更新按钮状态
+    document.querySelectorAll('.chart-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event?.target?.classList.add('active');
+    
+    const code = document.getElementById('fund-code').value;
+    const type = document.getElementById('fund-type').value;
+    
+    if (!code) return;
+    
+    try {
+        const res = await fetch('/api/fund/kline', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, type, days: currentKlineDays })
+        });
+        const data = await res.json();
+        
+        if (data.error) {
+            console.error('K线数据加载失败:', data.error);
+            return;
+        }
+        
+        // 更新统计数据
+        updateKlineStats(data);
+        
+        // 渲染K线图
+        renderKlineChart(data.data);
+        
+    } catch (e) {
+        console.error('加载K线失败:', e);
+    }
+}
+
+function updateKlineStats(data) {
+    const latest = data.latest || {};
+    
+    document.getElementById('kline-close').textContent = latest.close || '--';
+    
+    const changeEl = document.getElementById('kline-change');
+    const changePct = latest.change_pct || 0;
+    if (changePct >= 0) {
+        changeEl.textContent = `▲ +${changePct}%`;
+        changeEl.className = 'stat-change up';
+    } else {
+        changeEl.textContent = `▼ ${changePct}%`;
+        changeEl.className = 'stat-change down';
+    }
+    
+    // 计算周期最高最低
+    const klineData = data.data || [];
+    if (klineData.length > 0) {
+        const highs = klineData.map(d => d.high);
+        const lows = klineData.map(d => d.low);
+        const volumes = klineData.map(d => d.volume);
+        
+        document.getElementById('kline-high').textContent = Math.max(...highs).toFixed(2);
+        document.getElementById('kline-low').textContent = Math.min(...lows).toFixed(2);
+        
+        const avgVol = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+        document.getElementById('kline-volume').textContent = formatVolume(avgVol);
+    }
+    
+    document.getElementById('kline-count').textContent = `${data.count || 0} 根K线`;
+}
+
+function formatVolume(vol) {
+    if (vol >= 1e8) return (vol / 1e8).toFixed(2) + '亿';
+    if (vol >= 1e4) return (vol / 1e4).toFixed(2) + '万';
+    return vol.toFixed(0);
+}
+
+function renderKlineChart(data) {
+    const ctx = document.getElementById('klineChart');
+    if (!ctx) return;
+    
+    if (klineChartInstance) {
+        klineChartInstance.destroy();
+    }
+    
+    const labels = data.map(d => d.date);
+    const closes = data.map(d => d.close);
+    const volumes = data.map(d => d.volume);
+    
+    // 计算均线
+    const ma5 = calculateMA(closes, 5);
+    const ma10 = calculateMA(closes, 10);
+    const ma20 = calculateMA(closes, 20);
+    
+    klineChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '收盘价',
+                    data: closes,
+                    borderColor: '#f0b020',
+                    backgroundColor: 'rgba(240, 176, 32, 0.1)',
+                    fill: true,
+                    tension: 0.1,
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    order: 1
+                },
+                {
+                    label: 'MA5',
+                    data: ma5,
+                    borderColor: '#00d4ff',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    borderDash: [],
+                    order: 2
+                },
+                {
+                    label: 'MA10',
+                    data: ma10,
+                    borderColor: '#b388ff',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    borderDash: [],
+                    order: 3
+                },
+                {
+                    label: 'MA20',
+                    data: ma20,
+                    borderColor: '#ff4d6d',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    borderDash: [],
+                    order: 4
+                },
+                {
+                    label: '成交量',
+                    data: volumes,
+                    type: 'bar',
+                    backgroundColor: 'rgba(240, 176, 32, 0.2)',
+                    borderColor: 'rgba(240, 176, 32, 0.5)',
+                    borderWidth: 1,
+                    yAxisID: 'y1',
+                    order: 5
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    labels: { 
+                        color: '#8a9ab0', 
+                        font: { size: 11, family: "'JetBrains Mono', monospace" },
+                        usePointStyle: true,
+                        pointStyle: 'line'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(12, 22, 40, 0.95)',
+                    titleColor: '#f0b020',
+                    bodyColor: '#e8e0d0',
+                    borderColor: 'rgba(240, 176, 32, 0.3)',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: true
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(240, 176, 32, 0.05)' },
+                    ticks: { 
+                        color: '#5a6a80', 
+                        font: { size: 10 },
+                        maxTicksLimit: 10
+                    }
+                },
+                y: {
+                    position: 'left',
+                    grid: { color: 'rgba(240, 176, 32, 0.05)' },
+                    ticks: { 
+                        color: '#5a6a80', 
+                        font: { size: 10 }
+                    }
+                },
+                y1: {
+                    position: 'right',
+                    grid: { display: false },
+                    ticks: { 
+                        color: '#5a6a80', 
+                        font: { size: 10 },
+                        callback: function(value) {
+                            return formatVolume(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function calculateMA(data, period) {
+    const result = [];
+    for (let i = 0; i < data.length; i++) {
+        if (i < period - 1) {
+            result.push(null);
+        } else {
+            const sum = data.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0);
+            result.push(parseFloat((sum / period).toFixed(4)));
+        }
+    }
+    return result;
+}
+
+// 页面加载完成后自动加载K线图
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        loadKline(60);
+    }, 1000);
+});
+</script>
+
+<style>
+/* 数据源信息 */
+.data-source-info {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* 搜索下拉框 */
+.search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(16, 28, 52, 0.98);
+    border: 1px solid rgba(240, 176, 32, 0.3);
+    border-radius: 10px;
+    margin-top: 4px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.search-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(240, 176, 32, 0.1);
+    transition: all 0.2s ease;
+}
+
+.search-item:hover {
+    background: rgba(240, 176, 32, 0.1);
+    padding-left: 20px;
+}
+
+.search-item:last-child {
+    border-bottom: none;
+}
+
+.search-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.search-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: #f0b020;
+    font-weight: 600;
+    min-width: 100px;
+}
+
+.search-kind {
+    font-size: 10px;
+    padding: 1px 8px;
+    border-radius: 8px;
+    background: rgba(0, 212, 255, 0.12);
+    color: #00d4ff;
+}
+
+.search-name {
+    font-size: 13px;
+    color: #e8e0d0;
+    margin: 4px 0 2px;
+    font-weight: 500;
+}
+
+.search-detail {
+    font-size: 11px;
+    color: #8a9ab0;
+}
+
+.search-type {
+    font-size: 11px;
+    color: #8a9ab0;
+    background: rgba(240, 176, 32, 0.1);
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+
+/* 蒙特卡洛配置 */
+.mc-config .form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.mc-config .form-group label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .mc-config .form-inline {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .mc-config .form-group {
+        width: 100%;
+    }
+}
+</style>
+</body>
+</html>

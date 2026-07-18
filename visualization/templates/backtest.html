@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FUND-OS · 策略回测</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div id="loader-overlay">
+    <div class="loader-logo">FUND-OS</div>
+    <div class="loader-sub">INITIALIZING...</div>
+    <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+<canvas id="particle-canvas"></canvas>
+<div id="cursor-glow"></div>
+<div class="float-orb float-orb-1"></div>
+<div class="float-orb float-orb-2"></div>
+
+<nav class="navbar"><div class="nav-brand">FUND-OS</div><ul class="nav-menu"></ul></nav>
+
+<main class="container">
+    <script>document.addEventListener("DOMContentLoaded", ()=>{ buildBreadcrumb([{label:'首页',href:'/'},{label:'策略回测',href:'/backtest'}]); });</script>
+
+    <section class="hero" style="padding:60px 20px 30px;">
+        <h1>量化<span class="highlight">策略回测</span></h1>
+        <p class="hero-subtitle">基于真实历史价格 · 回测双均线 / 定投 / 买入持有策略 · 对比收益、回撤与夏普比率</p>
+    </section>
+
+    <section class="panel-3d reveal">
+        <div class="section-header"><h2>回测设置</h2><span class="badge badge-gold">初始资金 ¥100,000</span></div>
+        <div class="quick-estimate-form">
+            <div class="form-inline">
+                <div class="form-group" style="flex:2;min-width:200px;">
+                    <label>基金 / 股票代码</label>
+                    <input type="text" id="bt-code" placeholder="如 510300.SH / 600519.SH / SPY" value="510300.SH">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>类型</label>
+                    <select id="bt-type">
+                        <option value="cn">中国基金/股票</option>
+                        <option value="cn_stock">A股股票</option>
+                        <option value="us">海外标的</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>回看周期</label>
+                    <select id="bt-days">
+                        <option value="252">1年</option>
+                        <option value="504" selected>2年</option>
+                        <option value="756">3年</option>
+                        <option value="1260">5年</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex:0 0 auto;align-self:flex-end;">
+                    <button class="btn-3d" onclick="runBacktest()"><span>运行回测</span></button>
+                </div>
+            </div>
+            <div class="form-inline" style="margin-top:14px;align-items:center;">
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-dim);cursor:pointer;">
+                    <input type="checkbox" id="bt-guardrails" style="width:16px;height:16px;accent-color:var(--gold);">
+                    🛡 启用防过拟合护栏（REQ-05：样本内外拆分 + 过拟合评分 + 导出守卫）
+                </label>
+                <div class="form-group" style="flex:0 0 auto;margin-left:auto;">
+                    <label>样本外占比</label>
+                    <select id="bt-oos">
+                        <option value="0.3" selected>30%</option>
+                        <option value="0.2">20%</option>
+                        <option value="0.4">40%</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel-3d reveal" id="bt-result" style="display:none;">
+        <div class="section-header">
+            <h2>策略对比</h2>
+            <span class="badge badge-info" id="bt-signal"></span>
+        </div>
+
+        <div class="bt-cards" id="bt-cards"></div>
+
+        <div class="chart-container" style="margin-top:28px;">
+            <div class="chart-header"><div class="chart-title">📊 资金曲线对比 (初始 ¥100,000)</div></div>
+            <canvas id="btChart" style="max-height:400px;"></canvas>
+        </div>
+
+        <div class="bt-desc" id="bt-desc" style="margin-top:18px;font-size:13px;color:var(--text-dim);"></div>
+
+        <!-- REQ-05 防过拟合护栏面板 -->
+        <div id="bt-guardrail" class="panel-3d reveal" style="margin-top:24px;display:none;">
+            <div class="section-header">
+                <h2>🛡 防过拟合护栏</h2>
+                <span class="badge" id="bt-guard-status"></span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:16px;">
+                <div class="bt-strat-card">
+                    <div class="bt-strat-name">过拟合风险评分</div>
+                    <div class="bt-strat-final" id="bt-overfit-score">--</div>
+                    <div class="bt-current-signal" id="bt-overfit-level" style="margin-top:6px;"></div>
+                </div>
+                <div class="bt-strat-card">
+                    <div class="bt-strat-name">样本内收益</div>
+                    <div class="bt-strat-final up" id="bt-is-ret">--</div>
+                    <div class="bt-current-signal" id="bt-is-range" style="margin-top:6px;"></div>
+                </div>
+                <div class="bt-strat-card">
+                    <div class="bt-strat-name">样本外收益</div>
+                    <div class="bt-strat-final" id="bt-oos-ret">--</div>
+                    <div class="bt-current-signal" id="bt-oos-range" style="margin-top:6px;"></div>
+                </div>
+                <div class="bt-strat-card">
+                    <div class="bt-strat-name">绩效衰减 (内-外)</div>
+                    <div class="bt-strat-final" id="bt-decay">--</div>
+                    <div class="bt-current-signal" style="margin-top:6px;">参数脆弱度 <span id="bt-fragility">--</span></div>
+                </div>
+            </div>
+            <div id="bt-guard-warn" style="font-size:12px;color:var(--warning);margin-bottom:14px;"></div>
+            <button class="btn-3d ghost" onclick="exportGuardrailReport()"><span>导出回测报告（受护栏守卫）</span></button>
+            <div id="bt-export-msg" style="margin-top:10px;font-size:12px;color:var(--text-muted);"></div>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <div class="footer-bottom"><p>◆ FUND-OS 策略回测 · 基于历史数据的模拟，不构成投资建议，过往业绩不预示未来表现</p></div>
+</footer>
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+<script>
+let btChartInstance = null;
+
+const STRATS = [
+    { key:'ma_cross', name:'双均线交叉', color:'#f0b020' },
+    { key:'dca', name:'定投(DCA)', color:'#00f0a0' },
+    { key:'buy_hold', name:'买入持有', color:'#7b2dff' },
+];
+
+async function runBacktest(){
+    const code = document.getElementById('bt-code').value.trim();
+    const type = document.getElementById('bt-type').value;
+    const days = parseInt(document.getElementById('bt-days').value);
+    const useGuard = document.getElementById('bt-guardrails').checked;
+    const oos = parseFloat(document.getElementById('bt-oos').value);
+    const panel = document.getElementById('bt-result');
+    panel.style.display='block';
+    document.getElementById('bt-cards').innerHTML = '<div class="loading">正在回测三种策略...</div>';
+    document.getElementById('bt-guardrail').style.display = useGuard ? 'block' : 'none';
+
+    try{
+        const results = {};
+        for (const s of STRATS){
+            const payload = { code, type, days, strategy:s.key };
+            if (useGuard){ payload.guardrails = '1'; payload.oos_ratio = oos; }
+            const r = await postJSON('/api/backtest/run', payload);
+            if (r.error){ results[s.key]=null; continue; }
+            results[s.key] = r;
+        }
+        renderBtCards(results);
+        renderBtChart(results);
+        if (useGuard && results['ma_cross'] && results['ma_cross'].guardrail){
+            renderGuardrail(results['ma_cross']);
+        }
+    }catch(e){
+        document.getElementById('bt-cards').innerHTML = '<span style="color:#ff4d6d">回测失败: '+e.message+'</span>';
+    }
+}
+
+// REQ-05: 渲染防过拟合护栏面板
+function renderGuardrail(r){
+    const g = r.guardrail;
+    if(!g) return;
+    const statusEl = document.getElementById('bt-guard-status');
+    if(g.passed){
+        statusEl.textContent = '✓ 护栏通过 · 允许导出';
+        statusEl.className = 'badge badge-info';
+    }else{
+        statusEl.textContent = '✗ 护栏未通过 · 禁止导出';
+        statusEl.className = 'badge';
+        statusEl.style.cssText = 'background:rgba(255,77,79,.14);color:#ff8a8c;border:1px solid rgba(255,77,79,.35);';
+    }
+    document.getElementById('bt-overfit-score').textContent = g.overfit_score;
+    const lvlEl = document.getElementById('bt-overfit-level');
+    lvlEl.textContent = '风险等级: ' + g.overfit_level;
+    const lvlColor = g.overfit_level==='高' ? '#ff4d6f' : (g.overfit_level==='中' ? 'var(--gold)' : 'var(--success)');
+    lvlEl.style.color = lvlColor;
+
+    const isR = g.in_sample, oosR = g.out_of_sample;
+    const isEl = document.getElementById('bt-is-ret');
+    isEl.textContent = (isR.total_return_pct>=0?'+':'') + isR.total_return_pct + '%';
+    isEl.className = 'bt-strat-final ' + (isR.total_return_pct>=0?'up':'down');
+    document.getElementById('bt-is-range').textContent = (isR.start||'') + ' → ' + (isR.end||'');
+
+    const oosEl = document.getElementById('bt-oos-ret');
+    oosEl.textContent = (oosR.total_return_pct>=0?'+':'') + oosR.total_return_pct + '%';
+    oosEl.className = 'bt-strat-final ' + (oosR.total_return_pct>=0?'up':'down');
+    document.getElementById('bt-oos-range').textContent = (oosR.start||'') + ' → ' + (oosR.end||'');
+
+    const decayEl = document.getElementById('bt-decay');
+    decayEl.textContent = (g.decay_pct>=0?'+':'') + g.decay_pct + '%';
+    decayEl.className = 'bt-strat-final ' + (g.decay_pct>0?'down':'up');
+    document.getElementById('bt-fragility').textContent = g.param_fragility + '%';
+
+    const warnBox = document.getElementById('bt-guard-warn');
+    warnBox.innerHTML = (g.warnings||[]).map(w=>'⚠ ' + w).join('<br>');
+}
+
+// REQ-05: 导出守卫 —— 后端校验护栏通过才允许下载
+async function exportGuardrailReport(){
+    const code = document.getElementById('bt-code').value.trim();
+    const type = document.getElementById('bt-type').value;
+    const days = parseInt(document.getElementById('bt-days').value);
+    const oos = parseFloat(document.getElementById('bt-oos').value);
+    const msg = document.getElementById('bt-export-msg');
+    msg.style.color = 'var(--text-muted)';
+    msg.textContent = '正在校验护栏并生成报告...';
+    try{
+        const res = await fetch('/api/backtest/export', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ code, type, days, strategy:'ma_cross', oos_ratio:oos })
+        });
+        if(res.status === 403){
+            const d = await res.json();
+            msg.style.color = '#ff8a8c';
+            msg.textContent = '⛔ 导出被拦截: ' + d.error;
+            return;
+        }
+        if(!res.ok){ msg.textContent = '导出失败: ' + res.status; return; }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'backtest_report.json';
+        a.click(); URL.revokeObjectURL(url);
+        msg.style.color = 'var(--success)';
+        msg.textContent = '✓ 报告已导出（含样本内/外显著标注）';
+    }catch(e){
+        msg.textContent = '导出异常: ' + e.message;
+    }
+}
+
+function metricCard(title, value, cls){
+    return `<div class="bt-metric"><div class="bt-metric-label">${title}</div><div class="bt-metric-value ${cls||''}">${value}</div></div>`;
+}
+
+function renderBtCards(results){
+    const wrap = document.getElementById('bt-cards');
+    let html = '';
+    for (const s of STRATS){
+        const r = results[s.key];
+        if (!r){ html += `<div class="bt-strat-card" style="opacity:.5;"><div class="bt-strat-name">${s.name}</div><div style="color:#ff4d6d">数据不足</div></div>`; continue; }
+        const retCls = r.total_return_pct>=0 ? 'up':'down';
+        const curSignal = r.current_signal ? ` · 当前信号: ${r.current_signal}` : '';
+        html += `<div class="bt-strat-card" style="border-top:3px solid ${s.color};">
+            <div class="bt-strat-name">${s.name}</div>
+            <div class="bt-strat-final">期末 ¥${r.final_value.toLocaleString()}</div>
+            <div class="bt-metrics">
+                ${metricCard('总收益', (r.total_return_pct>=0?'+':'')+r.total_return_pct+'%', retCls)}
+                ${metricCard('年化', (r.annual_return_pct>=0?'+':'')+r.annual_return_pct+'%', r.annual_return_pct>=0?'up':'down')}
+                ${metricCard('最大回撤', r.max_drawdown_pct+'%', 'down')}
+                ${metricCard('夏普', r.sharpe_ratio, r.sharpe_ratio>=0?'up':'down')}
+                ${metricCard('年化波动', r.annual_volatility_pct+'%', 'down')}
+            </div>
+            <div class="bt-current-signal" style="margin-top:10px;font-size:12px;color:var(--text-muted);">${curSignal}</div>
+        </div>`;
+    }
+    wrap.innerHTML = html;
+    // 描述
+    const ma = results['ma_cross'];
+    document.getElementById('bt-desc').innerHTML = ma ? `策略说明：${ma.description}` : '';
+    document.getElementById('bt-signal').textContent = ma && ma.current_signal ? ('双均线当前: '+ma.current_signal) : '';
+}
+
+function renderBtChart(results){
+    const ctx = document.getElementById('btChart');
+    if (btChartInstance) btChartInstance.destroy();
+    // 对齐到最长序列
+    let labels = [];
+    for (const s of STRATS){ const r=results[s.key]; if (r && r.dates) labels = r.dates.length>labels.length?r.dates:labels; }
+    if (!labels.length) return;
+
+    const datasets = STRATS.map(s=>{
+        const r = results[s.key];
+        if (!r || !r.equity_curve) return null;
+        // 归一化长度
+        const eq = r.equity_curve;
+        const aligned = labels.length===eq.length ? eq : eq; // 各策略序列等长（同源）
+        return { label:s.name, data:aligned, borderColor:s.color, backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:.2 };
+    }).filter(Boolean);
+
+    btChartInstance = new Chart(ctx, {
+        type:'line',
+        data:{ labels, datasets },
+        options:{
+            responsive:true, maintainAspectRatio:false,
+            plugins:{ legend:{ labels:{ color:'#8a9ab0', font:{size:12, family:"'JetBrains Mono', monospace"} } } },
+            scales:{
+                x:{ ticks:{ maxTicksLimit:10, color:'#5a6a80', font:{size:10, family:"'JetBrains Mono', monospace"} }, grid:{ display:false } },
+                y:{ ticks:{ color:'#5a6a80', font:{size:11, family:"'JetBrains Mono', monospace"} }, grid:{ color:'rgba(240,176,32,.05)' } }
+            }
+        }
+    });
+}
+</script>
+
+<style>
+.bt-cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px; }
+.bt-strat-card{ background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); padding:20px; }
+.bt-strat-name{ font-size:16px; font-weight:700; color:var(--text-bright); margin-bottom:8px; }
+.bt-strat-final{ font-size:22px; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--gold); margin-bottom:14px; }
+.bt-metrics{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.bt-metric-label{ font-size:11px; color:var(--text-muted); margin-bottom:4px; }
+.bt-metric-value{ font-size:16px; font-weight:700; font-family:'JetBrains Mono',monospace; }
+</style>
+</body>
+</html>

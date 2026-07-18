@@ -1,0 +1,46 @@
+# ============================================================
+# FUND-OS 部署后健康检查（CI 门禁）
+# 通过 SSH 登录部署服务器，运行 make check 做 7 项上线校验。
+# 任意一项失败 → 工作流失败，可作为上线/回滚的卡点。
+#
+# 配置仓库 Secrets：
+#   DEPLOY_HOST     服务器公网 IP 或域名
+#   DEPLOY_USER     SSH 登录用户名（如 ubuntu / root）
+#   DEPLOY_SSH_KEY  SSH 私钥（ed25519 / rsa，对应服务器 ~/.ssh/authorized_keys）
+#   DEPLOY_PATH     服务器上项目根目录（含 Makefile / scripts/）
+#
+# 触发：在 GitHub → Actions → "Deploy Health Check" → Run workflow，
+#       输入已上线的公网域名（如 pay.your-domain.com）。
+# 也可接到部署流程之后，例如：
+#   workflow_run:
+#     workflows: ["Deploy"]
+#     types: [completed]
+# ============================================================
+name: Deploy Health Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: "已上线的公网域名（需 DNS 已解析到服务器且 HTTPS 可达）"
+        required: true
+        default: "pay.your-domain.com"
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH 到服务器执行 make check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd "${{ secrets.DEPLOY_PATH }}"
+            make check DOMAIN="${{ github.event.inputs.domain }}"
+
+      - name: 健康检查结论
+        if: always()
+        run: echo "健康检查完成，详见上方 SSH 步骤日志；若有 ❌ 失败项请先排查再开放流量。"

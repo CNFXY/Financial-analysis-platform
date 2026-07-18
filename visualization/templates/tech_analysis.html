@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>技术指标分析 · FUND-OS</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div id="loader-overlay">
+    <div class="loader-logo">FUND-OS</div>
+    <div class="loader-sub">LOADING TECH INDICATORS...</div>
+    <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<canvas id="particle-canvas"></canvas>
+<div id="cursor-glow"></div>
+
+<div class="float-orb float-orb-1"></div>
+<div class="float-orb float-orb-2"></div>
+
+<nav class="navbar"><div class="nav-brand">FUND-OS</div><ul class="nav-menu"></ul></nav>
+
+<main class="container">
+    <script>document.addEventListener("DOMContentLoaded", ()=>{ buildBreadcrumb([{label:'首页',href:'/'},{label:'技术指标',href:'/tech_analysis'}]); });</script>
+
+    <!-- 页面标题 -->
+    <section class="hero" style="padding: 40px 20px 30px;">
+        <div style="margin-bottom: 16px;">
+            <span class="badge badge-gold">◆ 技术分析引擎</span>
+        </div>
+        <h1>技术指标分析 <span class="highlight">& 多空信号</span></h1>
+        <p>15+ 技术指标综合研判 · MACD / RSI / KDJ / 布林带 / ATR / ADX 全维度覆盖</p>
+    </section>
+
+    <!-- 参数设置 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>参数设置</h2>
+            <div class="section-actions">
+                <span class="badge badge-info">📊 15+ 指标</span>
+            </div>
+        </div>
+        
+        <div class="form-grid">
+            <div class="form-group" style="position: relative;">
+                <label>📌 基金代码</label>
+                <input type="text" id="tech-code" placeholder="输入代码或名称搜索..." value="510300.SH"
+                       oninput="searchTechFunds(this.value)" onfocus="searchTechFunds(this.value)" onblur="hideTechSearchResults()">
+                <div id="tech-search-results" class="search-dropdown" style="display: none;"></div>
+            </div>
+            <div class="form-group">
+                <label>📛 基金名称（自动填充）</label>
+                <input type="text" id="tech-name" placeholder="选择搜索结果后自动显示" readonly>
+            </div>
+            <div class="form-group">
+                <label>🌍 市场类型</label>
+                <select id="tech-type">
+                    <option value="cn">中国基金</option>
+                    <option value="us">海外基金</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>📅 历史天数</label>
+                <input type="number" id="tech-days" placeholder="历史天数" value="120" min="30" max="365">
+            </div>
+            <div class="form-group" style="align-self: flex-end;">
+                <button class="btn-3d" onclick="analyzeTechIndicators()">
+                    <span>🔍 开始分析</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 多空信号综合研判 -->
+    <section class="panel-3d reveal" id="tech-signals-panel" style="display:none;">
+        <div class="section-header">
+            <h2>🎯 多空信号综合研判</h2>
+            <div class="section-actions">
+                <span class="badge" id="signal-verdict-badge">--</span>
+            </div>
+        </div>
+        
+        <!-- 综合判断大卡片 -->
+        <div class="verdict-card" id="verdict-card">
+            <div class="verdict-icon" id="verdict-icon">📊</div>
+            <div class="verdict-text" id="verdict-text">分析中...</div>
+            <div class="verdict-desc" id="verdict-desc">请稍候，正在计算技术指标...</div>
+        </div>
+        
+        <!-- 信号统计 -->
+        <div class="signal-stats">
+            <div class="signal-stat bullish">
+                <div class="signal-count" id="bullish-count">0</div>
+                <div class="signal-label">做多信号</div>
+                <div class="signal-bar">
+                    <div class="signal-bar-fill bullish-fill" id="bullish-bar"></div>
+                </div>
+            </div>
+            <div class="signal-stat neutral">
+                <div class="signal-count" id="neutral-count">0</div>
+                <div class="signal-label">中性信号</div>
+                <div class="signal-bar">
+                    <div class="signal-bar-fill neutral-fill" id="neutral-bar"></div>
+                </div>
+            </div>
+            <div class="signal-stat bearish">
+                <div class="signal-count" id="bearish-count">0</div>
+                <div class="signal-label">做空信号</div>
+                <div class="signal-bar">
+                    <div class="signal-bar-fill bearish-fill" id="bearish-bar"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 信号详情表格 -->
+        <div class="table-wrapper" style="margin-top: 24px;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>指标名称</th>
+                        <th>信号方向</th>
+                        <th>信号强度</th>
+                        <th>说明</th>
+                    </tr>
+                </thead>
+                <tbody id="signals-tbody"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- 指标走势图表 -->
+    <section class="panel-3d reveal" id="tech-chart-panel" style="display:none;">
+        <div class="section-header">
+            <h2>📈 指标走势</h2>
+            <div class="section-actions">
+                <div class="chart-actions">
+                    <button class="chart-btn active" onclick="setTechChartType(this, 'price')">价格/均线</button>
+                    <button class="chart-btn" onclick="setTechChartType(this, 'macd')">MACD</button>
+                    <button class="chart-btn" onclick="setTechChartType(this, 'rsi')">RSI</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="techChart" style="max-height: 400px;"></canvas>
+        </div>
+    </section>
+
+    <!-- 最新指标数值 -->
+    <section class="panel-3d reveal" id="tech-data-panel" style="display:none;">
+        <div class="section-header">
+            <h2>📊 最新指标数值</h2>
+            <div class="section-actions">
+                <span class="badge badge-info" id="tech-update-time">--</span>
+            </div>
+        </div>
+        
+        <div class="metrics-grid" id="tech-metrics-grid">
+            <!-- 指标卡片将动态生成 -->
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <p>◆ FUND-OS 基金估算系统 · 技术指标仅供参考，不构成投资建议</p>
+</footer>
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+<script>
+let techChart = null;
+let currentChartType = 'price';
+let techData = null;
+
+async function analyzeTechIndicators() {
+    const code = document.getElementById('tech-code').value;
+    const type = document.getElementById('tech-type').value;
+    const days = document.getElementById('tech-days').value;
+    
+    // 隐藏结果面板
+    document.getElementById('tech-signals-panel').style.display = 'none';
+    document.getElementById('tech-chart-panel').style.display = 'none';
+    document.getElementById('tech-data-panel').style.display = 'none';
+    
+    try {
+        const res = await fetch('/api/tech/indicators', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({code, type, days: parseInt(days)})
+        });
+        const data = await res.json();
+        
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        
+        techData = data;
+        
+        // 渲染信号
+        renderSignals(data.signals);
+        document.getElementById('tech-signals-panel').style.display = 'block';
+        
+        // 绘制图表
+        renderTechChart(data.indicators, 'price');
+        document.getElementById('tech-chart-panel').style.display = 'block';
+        
+        // 渲染最新数值
+        renderTechMetrics(data.indicators);
+        document.getElementById('tech-data-panel').style.display = 'block';
+        
+        // 更新时间
+        document.getElementById('tech-update-time').textContent = 
+            '更新于 ' + new Date().toLocaleTimeString();
+        
+    } catch (e) {
+        alert('请求失败: ' + e.message);
+    }
+}
+
+function renderSignals(signals) {
+    const summary = signals.summary;
+    const verdictMap = {
+        'strongly_bullish': { text: '强烈看多', icon: '🚀', color: '#00f0a0', desc: '多项技术指标发出强烈买入信号，上涨动能充足' },
+        'bullish': { text: '看多', icon: '📈', color: '#00f0a0', desc: '多数技术指标偏向多头，可考虑逢低布局' },
+        'neutral': { text: '中性', icon: '⚖️', color: '#f0b020', desc: '多空信号相对均衡，建议观望等待明确方向' },
+        'bearish': { text: '看空', icon: '📉', color: '#ff4d6d', desc: '多数技术指标偏向空头，注意控制风险' },
+        'strongly_bearish': { text: '强烈看空', icon: '⚠️', color: '#ff4d6d', desc: '多项技术指标发出强烈卖出信号，下跌风险较大' }
+    };
+    
+    const verdict = verdictMap[summary.verdict] || verdictMap['neutral'];
+    
+    // 更新综合判断
+    document.getElementById('verdict-icon').textContent = verdict.icon;
+    document.getElementById('verdict-text').textContent = verdict.text;
+    document.getElementById('verdict-text').style.color = verdict.color;
+    document.getElementById('verdict-desc').textContent = verdict.desc;
+    document.getElementById('verdict-card').style.borderColor = verdict.color + '40';
+    document.getElementById('verdict-card').style.boxShadow = `0 0 40px ${verdict.color}15`;
+    
+    // 更新徽章
+    const badge = document.getElementById('signal-verdict-badge');
+    badge.textContent = verdict.text;
+    badge.style.background = verdict.color + '20';
+    badge.style.color = verdict.color;
+    badge.style.borderColor = verdict.color + '40';
+    
+    // 更新信号计数
+    const total = summary.bullish_count + summary.neutral_count + summary.bearish_count;
+    document.getElementById('bullish-count').textContent = summary.bullish_count;
+    document.getElementById('neutral-count').textContent = summary.neutral_count;
+    document.getElementById('bearish-count').textContent = summary.bearish_count;
+    
+    // 更新进度条
+    setTimeout(() => {
+        document.getElementById('bullish-bar').style.width = (summary.bullish_count / total * 100) + '%';
+        document.getElementById('neutral-bar').style.width = (summary.neutral_count / total * 100) + '%';
+        document.getElementById('bearish-bar').style.width = (summary.bearish_count / total * 100) + '%';
+    }, 100);
+    
+    // 信号详情
+    const signalMap = {
+        'bullish': { text: '看多', color: '#00f0a0', icon: '▲' },
+        'bearish': { text: '看空', color: '#ff4d6d', icon: '▼' },
+        'neutral': { text: '中性', color: '#f0b020', icon: '◆' }
+    };
+    
+    const signalDescriptions = {
+        'SMA_5_20': '短期均线与长期均线交叉信号',
+        'MACD': 'MACD 柱状图与信号线交叉',
+        'RSI': '相对强弱指标超买超卖',
+        'KDJ': '随机指标多空交叉',
+        'BOLLINGER': '布林带位置与带宽变化',
+        'ATR': '平均真实波幅趋势',
+        'ADX': '平均趋向指数趋势强度',
+        'CCI': '商品通道指标超买超卖',
+        'WILLR': '威廉指标超买超卖',
+        'STOCH': '随机振荡器信号',
+        'ROC': '变动率指标趋势',
+        'MOM': '动量指标方向',
+        'OBV': '能量潮指标趋势',
+        'EMA': '指数移动平均趋势',
+        'WMA': '加权移动平均趋势'
+    };
+    
+    const tbody = document.getElementById('signals-tbody');
+    tbody.innerHTML = Object.entries(signals.signals).map(([k, v]) => {
+        const s = signalMap[v] || signalMap['neutral'];
+        const desc = signalDescriptions[k] || '技术指标信号';
+        const strength = v === 'bullish' || v === 'bearish' ? '强' : '中';
+        return `
+            <tr>
+                <td style="font-weight: 600;">${k}</td>
+                <td style="color: ${s.color}; font-weight: 600;">
+                    ${s.icon} ${s.text}
+                </td>
+                <td>
+                    <span class="badge badge-${v === 'bullish' ? 'success' : v === 'bearish' ? 'danger' : 'warning'}">
+                        ${strength}
+                    </span>
+                </td>
+                <td style="color: var(--text-dim); font-size: 12px;">${desc}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function setTechChartType(btn, type) {
+    document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentChartType = type;
+    
+    if (techData) {
+        renderTechChart(techData.indicators, type);
+    }
+}
+
+function renderTechChart(indicators, type) {
+    const ctx = document.getElementById('techChart').getContext('2d');
+    if (techChart) techChart.destroy();
+    
+    const labels = indicators.map((_, i) => `Day ${i + 1}`);
+    
+    let datasets = [];
+    let title = '';
+    
+    if (type === 'price') {
+        title = '价格与均线';
+        datasets = [
+            {
+                label: '收盘价',
+                data: indicators.map(d => d.close),
+                borderColor: '#f0b020',
+                backgroundColor: 'rgba(240, 176, 32, 0.1)',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: true,
+                tension: 0.1
+            },
+            {
+                label: 'SMA 5',
+                data: indicators.map(d => d.SMA_5),
+                borderColor: '#00d4ff',
+                borderWidth: 1.5,
+                pointRadius: 0,
+                tension: 0.1
+            },
+            {
+                label: 'SMA 20',
+                data: indicators.map(d => d.SMA_20),
+                borderColor: '#ff4d6d',
+                borderWidth: 1.5,
+                pointRadius: 0,
+                tension: 0.1
+            },
+            {
+                label: '布林上轨',
+                data: indicators.map(d => d.BB_Upper),
+                borderColor: 'rgba(0, 240, 160, 0.5)',
+                borderWidth: 1,
+                pointRadius: 0,
+                borderDash: [5, 5],
+                tension: 0.1
+            },
+            {
+                label: '布林下轨',
+                data: indicators.map(d => d.BB_Lower),
+                borderColor: 'rgba(255, 77, 109, 0.5)',
+                borderWidth: 1,
+                pointRadius: 0,
+                borderDash: [5, 5],
+                tension: 0.1
+            }
+        ];
+    } else if (type === 'macd') {
+        title = 'MACD 指标';
+        datasets = [
+            {
+                label: 'MACD',
+                data: indicators.map(d => d.MACD),
+                borderColor: '#f0b020',
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0.1
+            },
+            {
+                label: '信号线',
+                data: indicators.map(d => d.MACD_Signal),
+                borderColor: '#00d4ff',
+                borderWidth: 1.5,
+                pointRadius: 0,
+                tension: 0.1
+            },
+            {
+                label: '柱状图',
+                data: indicators.map(d => d.MACD_Hist),
+                type: 'bar',
+                backgroundColor: indicators.map(d => d.MACD_Hist >= 0 ? 'rgba(0, 240, 160, 0.6)' : 'rgba(255, 77, 109, 0.6)'),
+                borderWidth: 0
+            }
+        ];
+    } else if (type === 'rsi') {
+        title = 'RSI 指标';
+        datasets = [
+            {
+                label: 'RSI',
+                data: indicators.map(d => d.RSI),
+                borderColor: '#b388ff',
+                backgroundColor: 'rgba(179, 136, 255, 0.1)',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: true,
+                tension: 0.1
+            }
+        ];
+    }
+    
+    techChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#8a9ab0',
+                        font: { family: 'JetBrains Mono', size: 11 },
+                        usePointStyle: true,
+                        padding: 20
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(10, 18, 35, 0.95)',
+                    titleColor: '#f0b020',
+                    bodyColor: '#e8e0d0',
+                    borderColor: 'rgba(240, 176, 32, 0.2)',
+                    borderWidth: 1,
+                    padding: 12,
+                    titleFont: { family: 'JetBrains Mono', size: 12 },
+                    bodyFont: { family: 'JetBrains Mono', size: 11 },
+                    cornerRadius: 8
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { 
+                        color: '#5a6a80',
+                        font: { family: 'JetBrains Mono', size: 10 },
+                        maxTicksLimit: 10
+                    },
+                    grid: { color: 'rgba(255, 255, 255, 0.03)' }
+                },
+                y: {
+                    ticks: { 
+                        color: '#5a6a80',
+                        font: { family: 'JetBrains Mono', size: 10 }
+                    },
+                    grid: { color: 'rgba(255, 255, 255, 0.03)' }
+                }
+            }
+        }
+    });
+    
+    // RSI 特殊处理 - 添加超买超卖线
+    if (type === 'rsi') {
+        techChart.options.plugins.annotation = {
+            annotations: {
+                overbought: {
+                    type: 'line',
+                    yMin: 70,
+                    yMax: 70,
+                    borderColor: 'rgba(255, 77, 109, 0.5)',
+                    borderWidth: 1,
+                    borderDash: [5, 5],
+                    label: {
+                        display: true,
+                        content: '超买 70',
+                        position: 'end',
+                        backgroundColor: 'rgba(255, 77, 109, 0.2)',
+                        color: '#ff4d6d',
+                        font: { family: 'JetBrains Mono', size: 10 }
+                    }
+                },
+                oversold: {
+                    type: 'line',
+                    yMin: 30,
+                    yMax: 30,
+                    borderColor: 'rgba(0, 240, 160, 0.5)',
+                    borderWidth: 1,
+                    borderDash: [5, 5],
+                    label: {
+                        display: true,
+                        content: '超卖 30',
+                        position: 'end',
+                        backgroundColor: 'rgba(0, 240, 160, 0.2)',
+                        color: '#00f0a0',
+                        font: { family: 'JetBrains Mono', size: 10 }
+                    }
+                }
+            }
+        };
+        techChart.update();
+    }
+}
+
+function renderTechMetrics(indicators) {
+    const latest = indicators[indicators.length - 1];
+    
+    const metricGroups = [
+        { title: '趋势指标', items: ['SMA_5', 'SMA_10', 'SMA_20', 'EMA_12', 'EMA_26'] },
+        { title: '动量指标', items: ['MACD', 'RSI', 'KDJ_K', 'KDJ_D', 'KDJ_J'] },
+        { title: '波动率指标', items: ['BB_Upper', 'BB_Middle', 'BB_Lower', 'ATR', 'BB_Width'] },
+        { title: '其他指标', items: ['ADX', 'CCI', 'WILLR', 'ROC', 'MOM'] }
+    ];
+    
+    const grid = document.getElementById('tech-metrics-grid');
+    grid.innerHTML = metricGroups.map(group => `
+        <div class="metric-group">
+            <h3 style="font-size: 13px; color: var(--gold); margin-bottom: 16px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 1px;">
+                ${group.title}
+            </h3>
+            <div class="metric-cards">
+                ${group.items.map(item => {
+                    const value = latest[item];
+                    const displayValue = value !== undefined && value !== null && value !== 'N/A' 
+                        ? (typeof value === 'number' ? value.toFixed(4) : value)
+                        : 'N/A';
+                    return `
+                        <div class="metric-card">
+                            <div class="metric-label">${item}</div>
+                            <div class="metric-value" style="font-size: 18px;">${displayValue}</div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `).join('');
+}
+
+// ==================== 基金搜索功能 ====================
+let techSearchTimeout = null;
+
+function searchTechFunds(query) {
+    clearTimeout(techSearchTimeout);
+    
+    if (!query || query.length < 1) {
+        hideTechSearchResults();
+        return;
+    }
+    
+    techSearchTimeout = setTimeout(async () => {
+        try {
+            const res = await fetch(`/api/fund/search?q=${encodeURIComponent(query)}&scope=all`);
+            const data = await res.json();
+
+            if (data.results && data.results.length > 0) {
+                showTechSearchResults(data.results);
+            } else {
+                hideTechSearchResults();
+            }
+        } catch (e) {
+            console.error('搜索失败:', e);
+        }
+    }, 300);
+}
+
+function showTechSearchResults(results) {
+    const container = document.getElementById('tech-search-results');
+    let html = '';
+
+    results.forEach((fund) => {
+        const name = (fund.name || '').replace(/'/g, '');
+        html += `
+            <div class="search-item" onmousedown="selectTechFund('${fund.code}', '${name}')">
+                <div class="search-row">
+                    <span class="search-code glow-gold">${fund.code}</span>
+                    <span class="search-kind">${fund.kind || '基金'}</span>
+                </div>
+                <div class="search-name">${fund.name}</div>
+                <div class="search-detail">${fund.detail || ''}</div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+    container.style.display = 'block';
+}
+
+function hideTechSearchResults() {
+    setTimeout(() => {
+        const el = document.getElementById('tech-search-results');
+        if (el) el.style.display = 'none';
+    }, 200);
+}
+
+function selectTechFund(code, name) {
+    document.getElementById('tech-code').value = code;
+    const nameEl = document.getElementById('tech-name');
+    if (nameEl) nameEl.value = name || '';
+    hideTechSearchResults();
+}
+</script>
+
+<style>
+/* 综合判断卡片 */
+.verdict-card {
+    text-align: center;
+    padding: 40px;
+    background: linear-gradient(145deg, rgba(16, 28, 52, 0.9), rgba(10, 18, 35, 0.8));
+    border: 1px solid rgba(240, 176, 32, 0.2);
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+    transition: all 0.4s ease;
+}
+
+.verdict-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    filter: drop-shadow(0 0 20px rgba(240, 176, 32, 0.3));
+}
+
+.verdict-text {
+    font-size: 36px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 12px;
+    transition: color 0.3s ease;
+}
+
+.verdict-desc {
+    font-size: 14px;
+    color: var(--text-dim);
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.7;
+}
+
+/* 信号统计 */
+.signal-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.signal-stat {
+    text-align: center;
+    padding: 24px;
+    background: rgba(8, 14, 28, 0.5);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(240, 176, 32, 0.08);
+}
+
+.signal-count {
+    font-size: 42px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 8px;
+}
+
+.signal-stat.bullish .signal-count {
+    color: var(--success);
+    text-shadow: 0 0 20px var(--success-glow);
+}
+
+.signal-stat.neutral .signal-count {
+    color: var(--warning);
+    text-shadow: 0 0 20px var(--warning-glow);
+}
+
+.signal-stat.bearish .signal-count {
+    color: var(--danger);
+    text-shadow: 0 0 20px var(--danger-glow);
+}
+
+.signal-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.signal-bar {
+    height: 6px;
+    background: rgba(240, 176, 32, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.signal-bar-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 3px;
+    transition: width 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.bullish-fill {
+    background: linear-gradient(90deg, var(--success), #00ff88);
+    box-shadow: 0 0 10px var(--success-glow);
+}
+
+.neutral-fill {
+    background: linear-gradient(90deg, var(--warning), #ffd54f);
+    box-shadow: 0 0 10px var(--warning-glow);
+}
+
+.bearish-fill {
+    background: linear-gradient(90deg, var(--danger), #ff6b6b);
+    box-shadow: 0 0 10px var(--danger-glow);
+}
+
+/* 指标分组 */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+}
+
+.metric-group {
+    background: rgba(8, 14, 28, 0.3);
+    padding: 24px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(240, 176, 32, 0.06);
+}
+
+.metric-group .metric-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 0;
+}
+
+.metric-group .metric-card {
+    padding: 16px;
+}
+
+.metric-group .metric-label {
+    font-size: 11px;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .signal-stats {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .verdict-text {
+        font-size: 28px;
+    }
+    
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 搜索下拉框 */
+.search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(16, 28, 52, 0.98);
+    border: 1px solid rgba(240, 176, 32, 0.3);
+    border-radius: 10px;
+    margin-top: 4px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.search-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(240, 176, 32, 0.1);
+    transition: all 0.2s ease;
+}
+
+.search-item:hover {
+    background: rgba(240, 176, 32, 0.1);
+    padding-left: 20px;
+}
+
+.search-item:last-child {
+    border-bottom: none;
+}
+
+.search-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.search-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: #f0b020;
+    font-weight: 600;
+    min-width: 100px;
+}
+
+.search-kind {
+    font-size: 10px;
+    padding: 1px 8px;
+    border-radius: 8px;
+    background: rgba(0, 212, 255, 0.12);
+    color: #00d4ff;
+}
+
+.search-name {
+    font-size: 13px;
+    color: #e8e0d0;
+    margin: 4px 0 2px;
+    font-weight: 500;
+}
+
+.search-detail {
+    font-size: 11px;
+    color: #8a9ab0;
+}
+
+.search-type {
+    font-size: 11px;
+    color: #8a9ab0;
+    background: rgba(240, 176, 32, 0.1);
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+</style>
+</body>
+</html>

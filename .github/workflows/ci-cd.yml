@@ -1,0 +1,158 @@
+# ============================================
+# FUND-OS v5.0 CI/CD Pipeline
+# GitHub Actions 自动化构建 + 部署
+# ============================================
+
+name: FUND-OS CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+  DOCKER_REGISTRY: ghcr.io
+
+jobs:
+  # ==================== Lint & Test ====================
+  lint-test:
+    name: Lint & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt flake8 mypy pytest
+
+      - name: Python Lint
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+
+      - name: Frontend Lint
+        run: cd frontend && npm ci && npm run lint
+
+      - name: Generate auto-import dts
+        # unplugin-auto-import / unplugin-vue-components 生成的全局声明 (src/auto-imports.d.ts,
+        # src/components.d.ts) 在干净 npm ci 环境下不存在, 必须先生成, 否则 vue-tsc 因找不到
+        # 全局 ref/computed 类型而变红。gen:dts 通过 vite build 副作用写出声明到 src/。
+        run: cd frontend && npm run gen:dts
+
+      - name: Type Check
+        run: cd frontend && npx vue-tsc --noEmit
+
+  # ==================== Regression Tests ====================
+  test:
+    name: Regression Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r test-requirements.txt
+
+      - name: Expose package for import
+        # 仓库根即包内容（fund_estimation_system）；软链 + PYTHONPATH
+        # 使测试用例中的 `fund_estimation_system.*` 前缀在 CI 下可解析。
+        run: |
+          ln -sfn "$PWD" "${PWD%/*}/fund_estimation_system"
+          echo "PYTHONPATH=${PWD%/*}:${PYTHONPATH}" >> "$GITHUB_ENV"
+
+      - name: Run regression suite
+        run: pytest -m regression -v
+
+  # ==================== Build ====================
+  build:
+    name: Build & Package
+    needs: [lint-test, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ==================== Deploy (main only) ====================
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /opt/fund-os
+            docker compose pull && docker compose up -d --remove-orphans
+
+  deploy-production:
+    name: Deploy to Production
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /opt/fund-os
+            docker compose pull && docker compose up -d --remove-orphans

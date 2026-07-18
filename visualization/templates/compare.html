@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>基金对比 · FUND-OS</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div id="loader-overlay">
+    <div class="loader-logo">FUND-OS</div>
+    <div class="loader-sub">LOADING COMPARISON...</div>
+    <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<canvas id="particle-canvas"></canvas>
+<div id="cursor-glow"></div>
+
+<div class="float-orb float-orb-1"></div>
+<div class="float-orb float-orb-2"></div>
+
+<nav class="navbar"><div class="nav-brand">FUND-OS</div><ul class="nav-menu"></ul></nav>
+
+<main class="container">
+    <script>document.addEventListener('DOMContentLoaded', ()=>{ buildBreadcrumb([{label:'首页',href:'/'},{label:'基金对比',href:'/compare'}]); });</script>
+    <!-- 页面标题 -->
+    <section class="hero" style="padding: 40px 20px 30px;">
+        <div style="margin-bottom: 16px;">
+            <span class="badge badge-gold">◆ 横向对比引擎</span>
+        </div>
+        <h1>多基金 <span class="highlight">横向对比</span></h1>
+        <p>归一化净值走势 · 收益/风险指标横评 · 一图看清孰强孰弱</p>
+    </section>
+
+    <!-- 输入区 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>📋 待对比基金</h2>
+            <div class="section-actions">
+                <span class="badge badge-info">最多支持 6 只</span>
+            </div>
+        </div>
+
+        <div class="portfolio-input">
+            <div class="form-group">
+                <label>📝 基金列表</label>
+                <textarea id="compare-funds" rows="6" placeholder="每行一只: 代码,类型[,名称]&#10;如: 510300.SH,cn,沪深300ETF&#10;    510500.SH,cn,中证500ETF&#10;    SPY,us,标普500">510300.SH,cn,沪深300ETF
+510500.SH,cn,中证500ETF
+159915.SZ,cn,创业板ETF</textarea>
+                <div class="input-hint">
+                    💡 格式：每行一只基金，代码、类型(cn/us)、名称(可选)用逗号分隔
+                </div>
+            </div>
+        </div>
+
+        <div class="form-grid" style="margin-top: 16px;">
+            <div class="form-group">
+                <label>📅 对比天数</label>
+                <input type="number" id="compare-days" value="252" min="30" max="1000">
+            </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button class="btn-3d" onclick="runCompare()">
+                <span>🚀 开始对比</span>
+            </button>
+        </div>
+    </section>
+
+    <!-- 走势对比图 -->
+    <section class="panel-3d reveal" id="compare-chart-panel" style="display:none;">
+        <div class="section-header">
+            <h2>📈 归一化净值走势 (起点=100)</h2>
+            <div class="section-actions">
+                <span class="badge badge-success" id="compare-time">--</span>
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="compareChart" style="max-height: 420px;"></canvas>
+        </div>
+    </section>
+
+    <!-- 指标对比表 -->
+    <section class="panel-3d reveal" id="compare-table-panel" style="display:none;">
+        <div class="section-header">
+            <h2>📊 关键指标对比</h2>
+            <div class="section-actions">
+                <span class="badge badge-info">绿色=最优</span>
+            </div>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table" id="compare-table">
+                <thead>
+                    <tr>
+                        <th>基金</th>
+                        <th>总收益</th>
+                        <th>年化收益</th>
+                        <th>年化波动</th>
+                        <th>最大回撤</th>
+                        <th>夏普比率</th>
+                        <th>索提诺</th>
+                        <th>卡玛</th>
+                    </tr>
+                </thead>
+                <tbody id="compare-tbody"></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <p>◆ FUND-OS 基金估算系统 · 对比分析仅供参考，不构成投资建议</p>
+</footer>
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+<script>
+let compareChartInstance = null;
+const CHART_COLORS = ['#f0b020', '#00d4ff', '#ff4d6d', '#00f0a0', '#a06bff', '#ff9838'];
+
+async function runCompare() {
+    const raw = document.getElementById('compare-funds').value.trim();
+    const days = parseInt(document.getElementById('compare-days').value) || 252;
+    if (!raw) return;
+
+    const funds = raw.split('\n').map(line => {
+        const parts = line.split(',');
+        if (parts.length < 2) return null;
+        return {
+            code: parts[0].trim(),
+            type: parts[1].trim(),
+            name: parts[2] ? parts[2].trim() : parts[0].trim()
+        };
+    }).filter(f => f && f.code && f.type).slice(0, 6);
+
+    if (funds.length < 2) {
+        alert('请至少输入 2 只有效基金');
+        return;
+    }
+
+    document.getElementById('compare-chart-panel').style.display = 'none';
+    document.getElementById('compare-table-panel').style.display = 'none';
+
+    try {
+        const res = await fetch('/api/fund/compare', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({funds, days})
+        });
+        const data = await res.json();
+
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
+        renderChart(data);
+        renderTable(data.metrics);
+
+        const t = '更新于 ' + new Date().toLocaleTimeString();
+        document.getElementById('compare-time').textContent = t;
+        document.getElementById('compare-chart-panel').style.display = 'block';
+        document.getElementById('compare-table-panel').style.display = 'block';
+    } catch (e) {
+        alert('请求失败: ' + e.message);
+    }
+}
+
+function renderChart(data) {
+    const ctx = document.getElementById('compareChart').getContext('2d');
+    if (compareChartInstance) compareChartInstance.destroy();
+
+    // 精简 X 轴标签（最多约 12 个刻度）
+    const labels = data.labels.map(d => {
+        const s = String(d);
+        return s.length >= 10 ? s.slice(5, 10) : s;
+    });
+
+    const datasets = data.series.map((s, i) => ({
+        label: s.name,
+        data: s.values,
+        borderColor: CHART_COLORS[i % CHART_COLORS.length],
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.15,
+    }));
+
+    compareChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {labels, datasets},
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {mode: 'index', intersect: false},
+            plugins: {
+                legend: {labels: {color: '#c8d0e0', font: {family: 'JetBrains Mono'}}},
+                tooltip: {
+                    backgroundColor: 'rgba(8,14,28,0.95)',
+                    borderColor: '#f0b020',
+                    borderWidth: 1,
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {color: '#8090a8', maxTicksLimit: 12, font: {size: 10}},
+                    grid: {color: 'rgba(240,176,32,0.05)'}
+                },
+                y: {
+                    ticks: {color: '#8090a8', font: {size: 10}},
+                    grid: {color: 'rgba(240,176,32,0.05)'}
+                }
+            }
+        }
+    });
+}
+
+function renderTable(metrics) {
+    // 找出各指标最优值以高亮
+    const best = {
+        total_return_pct: Math.max(...metrics.map(m => m.total_return_pct)),
+        annualized_return_pct: Math.max(...metrics.map(m => m.annualized_return_pct)),
+        annualized_volatility_pct: Math.min(...metrics.map(m => m.annualized_volatility_pct)),
+        max_drawdown_pct: Math.max(...metrics.map(m => m.max_drawdown_pct)), // 回撤为负，越大越好
+        sharpe_ratio: Math.max(...metrics.map(m => m.sharpe_ratio)),
+        sortino_ratio: Math.max(...metrics.map(m => m.sortino_ratio)),
+        calmar_ratio: Math.max(...metrics.map(m => m.calmar_ratio)),
+    };
+
+    const hl = (v, key, suffix = '') => {
+        const isBest = Math.abs(v - best[key]) < 1e-9;
+        const style = isBest ? 'color: var(--success); font-weight: 700;' : '';
+        return `<td style="${style}">${v}${suffix}</td>`;
+    };
+
+    document.getElementById('compare-tbody').innerHTML = metrics.map(m => `
+        <tr>
+            <td style="font-weight:600;">${m.name}<br><span style="font-size:11px;color:var(--text-muted);">${m.code}</span></td>
+            ${hl(m.total_return_pct, 'total_return_pct', '%')}
+            ${hl(m.annualized_return_pct, 'annualized_return_pct', '%')}
+            ${hl(m.annualized_volatility_pct, 'annualized_volatility_pct', '%')}
+            ${hl(m.max_drawdown_pct, 'max_drawdown_pct', '%')}
+            ${hl(m.sharpe_ratio, 'sharpe_ratio')}
+            ${hl(m.sortino_ratio, 'sortino_ratio')}
+            ${hl(m.calmar_ratio, 'calmar_ratio')}
+        </tr>
+    `).join('');
+}
+</script>
+
+<style>
+.portfolio-input textarea {
+    width: 100%;
+    min-height: 150px;
+    background: rgba(8, 14, 28, 0.6);
+    color: var(--gold);
+    border: 1px solid rgba(240, 176, 32, 0.2);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    resize: vertical;
+    transition: all 0.3s ease;
+}
+.portfolio-input textarea:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 20px var(--gold-glow);
+}
+.input-hint {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 10px 14px;
+    background: rgba(240, 176, 32, 0.05);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(240, 176, 32, 0.08);
+}
+</style>
+</body>
+</html>

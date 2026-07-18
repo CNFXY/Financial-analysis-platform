@@ -1,0 +1,171 @@
+/* FUND-OS v5.0 全局样式 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* 滚动条样式 */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(240, 176, 32, 0.2);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(240, 176, 32, 0.35);
+  }
+
+  /* 选中文本 */
+  ::selection {
+    background: rgba(240, 176, 32, 0.25);
+    color: #fff;
+  }
+
+  /* 输入框自动填充样式 */
+  input:-webkit-autofill,
+  select:-webkit-autofill {
+    -webkit-text-fill-color: #e8e0d0;
+    -webkit-box-shadow: 0 0 0px 1000px #0c1428 inset;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-surface-deep text-gray-100 font-sans overflow-x-hidden;
+  }
+}
+
+@layer components {
+  /* 卡片组件 */
+  .card {
+    @apply bg-surface/70 backdrop-blur-xl border border-gold/10 rounded-2xl p-6
+           transition-all duration-300 hover:border-gold/20 hover:shadow-lg hover:shadow-gold/5;
+  }
+
+  .card-glass {
+    @apply bg-white/[0.03] backdrop-blur-2xl border border-white/[0.08] rounded-2xl
+           shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)];
+  }
+
+  /* 按钮系统 */
+  .btn-primary {
+    @apply px-6 py-2.5 bg-gradient-to-r from-gold-400 to-gold-500 text-surface-deep font-semibold
+           rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-gold/30
+           hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-2.5 bg-transparent border border-gold/25 text-gold-400 font-medium
+           rounded-xl transition-all duration-300 hover:bg-gold/5 hover:border-gold/40
+           hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 text-gray-400 hover:text-white hover:bg-white/5
+           rounded-lg transition-all duration-200;
+  }
+
+  /* 徽章 */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium;
+  }
+  .badge-gold {
+    @apply badge bg-gold-400/10 text-gold-400 border border-gold-400/20;
+  }
+  .badge-cyan {
+    @apply badge bg-cyan-400/10 text-cyan-400 border border-cyan-400/20;
+  }
+  .badge-success {
+    @apply badge bg-emerald-400/10 text-emerald-400 border border-emerald-400/20;
+  }
+  .badge-danger {
+    @apply badge bg-red-400/10 text-red-400 border border-red-400/20;
+  }
+
+  /* 输入框 */
+  .input-base {
+    @apply w-full px-4 py-3 bg-surface-light/50 border border-white/10 rounded-xl
+           text-gray-100 placeholder:text-gray-500
+           focus:outline-none focus:border-gold-400/40 focus:ring-1 focus:ring-gold-400/20
+           transition-all duration-200;
+  }
+
+  /* 表格 */
+  .table-data {
+    @apply w-full text-sm;
+  }
+  .table-data th {
+    @apply px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-white/5;
+  }
+  .table-data td {
+    @apply px-4 py-3.5 border-b border-white/[0.03];
+  }
+  .table-data tbody tr {
+    @apply transition-colors duration-150 hover:bg-white/[0.02];
+  }
+
+  /* 渐变文字 */
+  .text-gradient-gold {
+    @apply bg-gradient-to-r from-gold-400 via-gold-300 to-gold-400 bg-clip-text text-transparent;
+    background-size: 200% auto;
+    animation: shimmer 3s linear infinite;
+  }
+
+  .text-gradient-cyan {
+    @apply bg-gradient-to-r from-cyan-400 to-cyan-300 bg-clip-text text-transparent;
+  }
+
+  /* 状态指示器 */
+  .status-dot {
+    @apply w-2 h-2 rounded-full animate-pulse;
+  }
+  .status-dot-online { @apply status-dot bg-emerald-400; }
+  .status-dot-offline { @apply status-dot bg-gray-500; }
+  .status-dot-warning { @apply status-dot bg-amber-400; }
+}
+
+@layer utilities {
+  /* 背景效果 */
+  .bg-grid-pattern {
+    background-image: linear-gradient(rgba(240, 176, 32, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(240, 176, 32, 0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  /* 玻璃态 */
+  .glass {
+    background: rgba(12, 22, 40, 0.6);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  .glass-strong {
+    background: rgba(12, 22, 40, 0.85);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+  }
+
+  /* 文本截断 */
+  .text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* NProgress 自定义 */
+#nprogress .bar {
+  background: linear-gradient(90deg, #f0b020, #ffd666) !important;
+  height: 3px !important;
+}
+#nprogress .peg {
+  box-shadow: 0 0 10px #f0b020, 0 0 5px #f0b020 !important;
+}

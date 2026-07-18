@@ -1,0 +1,88 @@
+# ============================================
+# FUND-OS v5.0 Git 忽略规则
+# ============================================
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ---- 虚拟环境 ----
+.venv/
+venv/
+ENV/
+env/
+
+# ---- IDE ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ---- 数据文件（敏感）----
+data/*.db
+data/*.sqlite
+cache/
+logs/*.log
+.env
+.env.local
+.env.production
+!env.example
+
+# ---- Node.js (前端)----
+frontend/node_modules/
+frontend/dist/
+visualization/dist/
+
+# ---- Docker 产物 ----
+docker/volumes/
+
+# ---- 测试 ----
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+
+# ---- Jupyter ----
+.ipynb_checkpoints/
+
+# ---- OS 文件 ----
+Thumbs.db
+Desktop.ini
+*.tmp
+*.bak
+_err*.txt
+_out*.txt
+_probe*.txt
+_sock*.txt
+_server*.txt
+_ha*.txt
+_t*.txt
+_te*.txt
+_*.txt
+
+# ---- 报告输出（可重新生成）----
+reports/*.html
+reports/*.json
+reports/*.xlsx
+!reports/.gitkeep

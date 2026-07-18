@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>报告中心 · FUND-OS</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div id="loader-overlay">
+    <div class="loader-logo">FUND-OS</div>
+    <div class="loader-sub">LOADING REPORTS...</div>
+    <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<canvas id="particle-canvas"></canvas>
+<div id="cursor-glow"></div>
+
+<div class="float-orb float-orb-1"></div>
+<div class="float-orb float-orb-2"></div>
+
+<nav class="navbar"><div class="nav-brand">FUND-OS</div><ul class="nav-menu"></ul></nav>
+
+<main class="container">
+    <script>document.addEventListener("DOMContentLoaded", ()=>{ buildBreadcrumb([{label:'首页',href:'/'},{label:'报告中心',href:'/reports'}]); });</script>
+
+    <!-- 页面标题 -->
+    <section class="hero" style="padding: 40px 20px 30px;">
+        <div style="margin-bottom: 16px;">
+            <span class="badge badge-gold">◆ 专业报告生成</span>
+        </div>
+        <h1>报告 <span class="highlight">中心</span></h1>
+        <p>一键生成专业分析报告 · HTML可视化 · JSON数据导出 · Excel报表</p>
+    </section>
+
+    <!-- 生成报告 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>📊 快速生成报告</h2>
+            <div class="section-actions">
+                <span class="badge badge-info">一键生成</span>
+            </div>
+        </div>
+        
+        <div class="report-cards">
+            <!-- 市场概览报告 -->
+            <div class="report-card">
+                <div class="report-card-icon" style="background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 212, 255, 0.05));">
+                    🌍
+                </div>
+                <h3>市场概览报告</h3>
+                <p>生成主要市场指数与基金的概览分析，包含趋势判断与预测变动</p>
+                <div class="report-tags">
+                    <span class="badge badge-info">沪深300</span>
+                    <span class="badge badge-info">中证500</span>
+                    <span class="badge badge-info">创业板</span>
+                    <span class="badge badge-info">SPY</span>
+                </div>
+                <button class="btn-3d btn-outline" onclick="generateReport('overview')">
+                    <span>立即生成</span>
+                </button>
+            </div>
+            
+            <!-- 组合报告 -->
+            <div class="report-card">
+                <div class="report-card-icon" style="background: linear-gradient(135deg, rgba(255, 77, 109, 0.2), rgba(255, 77, 109, 0.05));">
+                    💼
+                </div>
+                <h3>组合分析报告</h3>
+                <p>基于当前持仓生成完整的投资组合分析报告，含资产配置与收益分析</p>
+                <div class="report-tags">
+                    <span class="badge badge-success">资产配置</span>
+                    <span class="badge badge-success">收益分析</span>
+                    <span class="badge badge-success">风险评估</span>
+                </div>
+                <button class="btn-3d btn-outline" onclick="generateReport('portfolio')">
+                    <span>立即生成</span>
+                </button>
+            </div>
+            
+            <!-- 技术分析报告 -->
+            <div class="report-card">
+                <div class="report-card-icon" style="background: linear-gradient(135deg, rgba(0, 240, 160, 0.2), rgba(0, 240, 160, 0.05));">
+                    📈
+                </div>
+                <h3>技术分析报告</h3>
+                <p>基于技术指标的深度分析报告，包含多空信号研判与趋势预测</p>
+                <div class="report-tags">
+                    <span class="badge badge-warning">MACD</span>
+                    <span class="badge badge-warning">RSI</span>
+                    <span class="badge badge-warning">布林带</span>
+                    <span class="badge badge-warning">KDJ</span>
+                </div>
+                <button class="btn-3d btn-outline" onclick="generateReport('tech')">
+                    <span>立即生成</span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="report-status" class="result-box" style="margin-top: 24px; display: none;"></div>
+    </section>
+
+    <!-- 单基金深度报告 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>🎯 单基金深度报告</h2>
+            <div class="section-actions">
+                <span class="badge badge-gold">专业深度分析</span>
+            </div>
+        </div>
+        
+        <div class="form-grid">
+            <div class="form-group">
+                <label>📌 基金代码</label>
+                <input type="text" id="report-fund-code" placeholder="如 510300.SH" value="510300.SH">
+            </div>
+            <div class="form-group">
+                <label>🌍 市场类型</label>
+                <select id="report-fund-type">
+                    <option value="cn">中国基金</option>
+                    <option value="us">海外基金</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>📅 分析周期</label>
+                <select id="report-period">
+                    <option value="30">近30天</option>
+                    <option value="60">近60天</option>
+                    <option value="90" selected>近90天</option>
+                    <option value="180">近180天</option>
+                    <option value="365">近一年</option>
+                </select>
+            </div>
+            <div class="form-group" style="align-self: flex-end;">
+                <button class="btn-3d" onclick="generateFundDetail()">
+                    <span>🚀 生成深度报告</span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="fund-detail-status" class="result-box" style="margin-top: 24px; display: none;"></div>
+    </section>
+
+    <!-- 导出功能 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>📤 数据导出</h2>
+            <div class="section-actions">
+                <span class="badge badge-info">多格式支持</span>
+            </div>
+        </div>
+        
+        <div class="export-options">
+            <div class="export-item">
+                <div class="export-icon">📊</div>
+                <div class="export-info">
+                    <h4>Excel 报表导出</h4>
+                    <p>导出为 Excel 格式，包含完整数据分析</p>
+                </div>
+                <button class="btn-3d btn-outline" onclick="exportExcel()">
+                    <span>导出</span>
+                </button>
+            </div>
+            
+            <div class="export-item">
+                <div class="export-icon">📋</div>
+                <div class="export-info">
+                    <h4>JSON 数据导出</h4>
+                    <p>导出原始 JSON 数据，方便二次开发</p>
+                </div>
+                <button class="btn-3d btn-outline" onclick="exportJSON()">
+                    <span>导出</span>
+                </button>
+            </div>
+            
+            <div class="export-item">
+                <div class="export-icon">🌐</div>
+                <div class="export-info">
+                    <h4>HTML 报告导出</h4>
+                    <p>导出为独立 HTML 报告，可离线查看</p>
+                </div>
+                <button class="btn-3d btn-outline" onclick="exportHTML()">
+                    <span>导出</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 报告文件列表 -->
+    <section class="panel-3d reveal">
+        <div class="section-header">
+            <h2>📁 报告文件列表</h2>
+            <div class="section-actions">
+                <button class="btn-3d btn-outline" style="padding: 8px 16px; font-size: 12px;" onclick="refreshReportList()">
+                    <span>🔄 刷新</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>文件名</th>
+                        <th>类型</th>
+                        <th>大小</th>
+                        <th>生成时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="report-list-tbody">
+                    <tr class="empty-row">
+                        <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px;">
+                            暂无报告，请先生成报告
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <p class="hint" style="margin-top: 20px;">
+            💡 报告文件保存在项目目录下的 <span class="glow-gold">reports/</span> 文件夹中
+        </p>
+    </section>
+</main>
+
+<footer class="footer">
+    <p>◆ FUND-OS 基金估算系统 · 数据仅供参考，不构成投资建议</p>
+</footer>
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+<script>
+// 生成报告
+async function generateReport(type) {
+    const statusEl = document.getElementById('report-status');
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = `
+        <div style="text-align: center; padding: 20px;">
+            <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
+            <p style="color: var(--text-dim);">正在生成报告，请稍候...</p>
+        </div>
+    `;
+    
+    try {
+        const res = await fetch('/api/report/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ type })
+        });
+        const data = await res.json();
+        
+        if (data.error) {
+            statusEl.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: var(--danger);">
+                    ❌ 生成失败: ${data.error}
+                </div>
+            `;
+            return;
+        }
+        
+        statusEl.innerHTML = `
+            <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
+                <h3 style="color: var(--success); margin-bottom: 8px;">报告生成成功！</h3>
+                <p style="color: var(--text-dim); margin-bottom: 16px;">
+                    文件名: <span style="color: var(--gold); font-family: 'JetBrains Mono', monospace;">${data.filename || 'report.html'}</span>
+                </p>
+                <button class="btn-3d" onclick="window.open('/reports/${data.filename || 'report.html'}', '_blank')">
+                    <span>📂 查看报告</span>
+                </button>
+            </div>
+        `;
+        
+        // 刷新报告列表
+        setTimeout(() => refreshReportList(), 1000);
+        
+    } catch (e) {
+        statusEl.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: var(--danger);">
+                ❌ 生成失败: ${e.message}
+            </div>
+        `;
+    }
+}
+
+// 生成单基金深度报告
+async function generateFundDetail() {
+    const code = document.getElementById('report-fund-code').value;
+    const type = document.getElementById('report-fund-type').value;
+    const period = document.getElementById('report-period').value;
+    
+    const statusEl = document.getElementById('fund-detail-status');
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = `
+        <div style="text-align: center; padding: 20px;">
+            <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
+            <p style="color: var(--text-dim);">正在生成深度报告，请稍候...</p>
+        </div>
+    `;
+    
+    try {
+        const res = await fetch('/api/report/fund_detail', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ code, type, days: parseInt(period) })
+        });
+        const data = await res.json();
+        
+        if (data.error) {
+            statusEl.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: var(--danger);">
+                    ❌ 生成失败: ${data.error}
+                </div>
+            `;
+            return;
+        }
+        
+        statusEl.innerHTML = `
+            <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
+                <h3 style="color: var(--success); margin-bottom: 8px;">深度报告生成成功！</h3>
+                <p style="color: var(--text-dim); margin-bottom: 16px;">
+                    基金: <span style="color: var(--gold);">${code}</span> | 
+                    周期: <span style="color: var(--gold);">${period}天</span>
+                </p>
+                <button class="btn-3d" onclick="window.open('/reports/fund_detail_${code}.html', '_blank')">
+                    <span>📂 查看深度报告</span>
+                </button>
+            </div>
+        `;
+        
+        // 刷新报告列表
+        setTimeout(() => refreshReportList(), 1000);
+        
+    } catch (e) {
+        statusEl.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: var(--danger);">
+                ❌ 生成失败: ${e.message}
+            </div>
+        `;
+    }
+}
+
+// 刷新报告列表
+function refreshReportList() {
+    // 模拟刷新 - 实际项目中应该调用 API
+    const tbody = document.getElementById('report-list-tbody');
+    
+    // 这里可以调用后端 API 获取报告列表
+    // 暂时显示示例数据
+    const sampleReports = [
+        { name: 'market_overview.html', type: '市场概览', size: '256 KB', time: '2026-07-01 15:30' },
+        { name: 'fund_detail_510300.html', type: '基金深度', size: '512 KB', time: '2026-07-01 14:20' },
+        { name: 'portfolio_report.html', type: '组合报告', size: '384 KB', time: '2026-06-30 16:45' },
+    ];
+    
+    if (sampleReports.length > 0) {
+        tbody.innerHTML = sampleReports.map(r => `
+            <tr>
+                <td style="font-weight: 600; color: var(--gold);">${r.name}</td>
+                <td><span class="badge badge-info">${r.type}</span></td>
+                <td style="font-family: 'JetBrains Mono', monospace;">${r.size}</td>
+                <td style="color: var(--text-dim);">${r.time}</td>
+                <td>
+                    <button class="btn-3d btn-outline" style="padding: 6px 12px; font-size: 11px;" onclick="window.open('/reports/${r.name}', '_blank')">
+                        <span>查看</span>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+}
+
+// 导出 Excel
+function exportExcel() {
+    alert('Excel 导出功能开发中...');
+}
+
+// 导出 JSON
+function exportJSON() {
+    alert('JSON 导出功能开发中...');
+}
+
+// 导出 HTML
+function exportHTML() {
+    alert('HTML 导出功能开发中...');
+}
+
+// 页面加载时刷新报告列表
+window.addEventListener('load', () => {
+    // 延迟一下再刷新，让页面先加载完成
+    setTimeout(() => refreshReportList(), 500);
+});
+</script>
+
+<style>
+/* 报告卡片 */
+.report-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+}
+
+.report-card {
+    background: linear-gradient(145deg, rgba(16, 28, 52, 0.8), rgba(10, 18, 35, 0.6));
+    border: 1px solid rgba(240, 176, 32, 0.1);
+    border-radius: var(--radius);
+    padding: 28px;
+    text-align: center;
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.report-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--gold), var(--cyan));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.report-card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(240, 176, 32, 0.3);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 30px rgba(240, 176, 32, 0.1);
+}
+
+.report-card:hover::before {
+    opacity: 1;
+}
+
+.report-card-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    margin: 0 auto 20px;
+    border: 1px solid rgba(240, 176, 32, 0.15);
+}
+
+.report-card h3 {
+    font-size: 18px;
+    color: var(--text-bright);
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.report-card p {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    margin-bottom: 20px;
+}
+
+.report-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 24px;
+}
+
+.report-tags .badge {
+    font-size: 10px;
+    padding: 4px 10px;
+}
+
+.report-card .btn-3d {
+    width: 100%;
+}
+
+/* 导出选项 */
+.export-options {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.export-item {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px 24px;
+    background: rgba(8, 14, 28, 0.4);
+    border: 1px solid rgba(240, 176, 32, 0.08);
+    border-radius: var(--radius-sm);
+    transition: all 0.3s ease;
+}
+
+.export-item:hover {
+    background: rgba(240, 176, 32, 0.05);
+    border-color: rgba(240, 176, 32, 0.2);
+    transform: translateX(4px);
+}
+
+.export-icon {
+    font-size: 32px;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(240, 176, 32, 0.1);
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+.export-info {
+    flex: 1;
+}
+
+.export-info h4 {
+    font-size: 15px;
+    color: var(--text-bright);
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.export-info p {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.export-item .btn-3d {
+    flex-shrink: 0;
+}
+
+/* 加载动画 */
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(240, 176, 32, 0.1);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .report-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .export-item {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .export-item .btn-3d {
+        width: 100%;
+    }
+}
+</style>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# FUND-OS 测试依赖
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.23.0
+pytest-flask>=1.2.0
+httpx>=0.26.0           # 异步 HTTP 测试客户端
+factory-boy>=3.3.0      # 测试数据工厂
+faker>=22.0.0           # 随机测试数据生成
+coverage>=7.3.0         # 覆盖率统计
