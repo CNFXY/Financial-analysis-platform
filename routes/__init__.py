@@ -18,7 +18,7 @@ from core.auth import (
     rate_limit
 )
 from models.database import db_session
-from models import User, FundInfo, Portfolio, Subscription
+from models import User, FundInfo, Portfolio, Subscription, Report
 
 logger = logging.getLogger('fundos.api')
 

@@ -194,8 +194,8 @@ def api_fund_kline():
 
     if df is None or df.empty or len(df) < 5:
         return jsonify({"error": "数据不足"})
-    kd = [{"date": str(r.get("date", "")), "open": float(r.get("open", 0)), "high": float(r.get("high", 0)),
-           "low": float(r.get("low", 0)), "close": float(r.get("close", 0)), "volume": int(r.get("volume", 0))}
+    kd = [{"date": str(row.get("date", "")), "open": float(row.get("open", 0)), "high": float(row.get("high", 0)),
+           "low": float(row.get("low", 0)), "close": float(row.get("close", 0)), "volume": int(row.get("volume", 0))}
           for _, row in df.iterrows()]
     return _build_kline_response(fund_code, kd)
 
