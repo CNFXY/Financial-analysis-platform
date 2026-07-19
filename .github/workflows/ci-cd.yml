@@ -135,12 +135,13 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     needs: build
-    # 仅在推 develop 且已配置 STAGING_HOST 时执行; 未配 secret 则跳过 (neutral, 不标红)
-    if: github.ref == 'refs/heads/develop' && secrets.STAGING_HOST != ''
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     environment: staging
     steps:
+      # 仅在已配置 STAGING_HOST 时执行部署; 未配则本步骤自动跳过 (job 仍显绿)
       - name: Deploy via SSH
+        if: ${{ secrets.STAGING_HOST != '' }}
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.STAGING_HOST }}
@@ -153,12 +154,13 @@ jobs:
   deploy-production:
     name: Deploy to Production
     needs: build
-    # 仅在推 main 且已配置 PROD_HOST 时执行; 未配 secret 则跳过 (neutral, 不标红)
-    if: github.ref == 'refs/heads/main' && secrets.PROD_HOST != ''
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     steps:
+      # 仅在已配置 PROD_HOST 时执行部署; 未配则本步骤自动跳过 (job 仍显绿)
       - name: Deploy via SSH
+        if: ${{ secrets.PROD_HOST != '' }}
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.PROD_HOST }}
