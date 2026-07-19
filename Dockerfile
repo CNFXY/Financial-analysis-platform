@@ -8,7 +8,8 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /build/frontend
 
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm ci --registry=https://registry.npmmirror.com
+# 使用官方 npm 源: CI 运行在 GitHub 海外 runner, 国内镜像 registry.npmmirror.com 可能连不通
+RUN npm ci
 
 COPY frontend/ ./
 # 先生成 unplugin 全局声明 (src/auto-imports.d.ts, src/components.d.ts)。

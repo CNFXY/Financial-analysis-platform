@@ -119,8 +119,11 @@ jobs:
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # 关闭 GHA 缓存导入, 并去掉 mode=max: 否则 buildx 会把多阶段 COPY
+          # (COPY --from=frontend-builder /build/frontend/dist) 的缓存键错挂到构建上下文,
+          # 报 "failed to compute cache key ... /build/frontend/dist: not found"。
+          # 仅在导出顶层层时缓存, 规避该问题。
+          cache-to: type=gha
 
   # ==================== Deploy (main only) ====================
   deploy-staging:
