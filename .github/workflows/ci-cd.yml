@@ -142,7 +142,7 @@ jobs:
       # 仅在已配置 STAGING_HOST 时执行部署; 未配则本步骤自动跳过 (job 仍显绿)
       - name: Deploy via SSH
         if: ${{ secrets.STAGING_HOST != '' }}
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.SSH_USER }}
@@ -161,7 +161,7 @@ jobs:
       # 仅在已配置 PROD_HOST 时执行部署; 未配则本步骤自动跳过 (job 仍显绿)
       - name: Deploy via SSH
         if: ${{ secrets.PROD_HOST != '' }}
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.SSH_USER }}
