@@ -45,14 +45,7 @@ done
 
 mkdir -p "$CERTS_DIR" "$WEBROOT_DIR"
 
-# 把 "a b c" 转成 "-d a -d b -d c"
-build_domain_args() {
-  local args=""
-  for d in $DOMAINS; do
-    args="$args -d $d"
-  done
-  echo "$args"
-}
+# 用数组累积 "-d <domain>" 参数，避免词拆分被 shellcheck 误报 (SC2086)
 
 # 复制证书并重载 nginx
 copy_certs() {
@@ -93,19 +86,21 @@ copy_certs() {
 }
 
 issue() {
-  local dargs
-  dargs="$(build_domain_args)"
+  local dargs=()
+  for d in $DOMAINS; do
+    dargs+=(-d "$d")
+  done
   if [[ "$HAS_WILDCARD" -eq 1 ]]; then
     echo "检测到泛域名，需使用 DNS-01 挑战。"
     echo "提示：可安装对应 DNS 插件（如 certbot-dns-aliyun）实现自动校验；"
     echo "      否则将进入 --manual 模式，需按提示手动添加 _acme-challenge TXT 记录。"
     certbot certonly --manual --preferred-challenges dns \
       --email "$EMAIL" --agree-tos --non-interactive \
-      $dargs
+      "${dargs[@]}"
   else
     certbot certonly --webroot -w "$WEBROOT_DIR" \
       --email "$EMAIL" --agree-tos --non-interactive \
-      $dargs
+      "${dargs[@]}"
   fi
   copy_certs
 }
