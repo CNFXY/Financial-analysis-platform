@@ -4,7 +4,10 @@
 # ============================================
 
 # ====== 阶段1: 构建前端 ======
-FROM node:20-alpine AS frontend-builder
+# 使用 Debian 基础镜像 (glibc): Vite/esbuild 的原生二进制为 glibc 构建,
+# 在 alpine (musl) 上 vite build 会失败, 导致 /build/frontend/dist 不生成,
+# 进而 COPY --from=frontend-builder 报 "not found"。
+FROM node:20-bookworm AS frontend-builder
 WORKDIR /build/frontend
 
 COPY frontend/package.json frontend/package-lock.json* ./
