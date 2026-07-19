@@ -43,7 +43,9 @@ RUN pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple -r requ
 COPY . .
 
 # 复制构建好的前端静态文件
-COPY --from=frontend-builder /build/frontend/dist ./visualization/dist
+# 注意: vite.config.ts 中 build.outDir 为 '../visualization/dist' (相对 WORKDIR /build/frontend),
+# 故产物实际位于 /build/visualization/dist, 而非 /build/frontend/dist。
+COPY --from=frontend-builder /build/visualization/dist ./visualization/dist
 
 # Nginx 配置（前端静态文件 + API 反向代理）
 COPY docker/nginx.conf /etc/nginx/nginx.conf
