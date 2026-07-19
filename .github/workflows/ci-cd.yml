@@ -16,6 +16,12 @@ env:
   NODE_VERSION: '20'
   DOCKER_REGISTRY: ghcr.io
 
+# 推送镜像到 GHCR 需要 GITHUB_TOKEN 具备 packages: write 权限
+permissions:
+  contents: read
+  packages: write
+
+
 jobs:
   # ==================== Lint & Test ====================
   lint-test:
