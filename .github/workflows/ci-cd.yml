@@ -1,5 +1,5 @@
 # ============================================
-# FUND-OS v5.0 CI/CD Pipeline (诊断 B: 去 deploy/environment)
+# FUND-OS v5.0 CI/CD Pipeline (诊断 C: deploy 去 environment)
 # ============================================
 
 name: FUND-OS CI/CD
@@ -120,3 +120,41 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-to: type=gha
+
+  # ==================== Deploy ====================
+  # 注意: 此处故意去掉 environment: 字段以排查其是否为 0-jobs failure 的根因
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      # 仅在已配置 STAGING_HOST 时执行部署; 未配则本步骤自动跳过 (job 仍显绿)
+      - name: Deploy via SSH
+        if: ${{ secrets.STAGING_HOST != '' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /opt/fund-os
+            docker compose pull && docker compose up -d --remove-orphans
+
+  deploy-production:
+    name: Deploy to Production
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      # 仅在已配置 PROD_HOST 时执行部署; 未配则本步骤自动跳过 (job 仍显绿)
+      - name: Deploy via SSH
+        if: ${{ secrets.PROD_HOST != '' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /opt/fund-os
+            docker compose pull && docker compose up -d --remove-orphans
