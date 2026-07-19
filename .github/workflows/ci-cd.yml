@@ -135,7 +135,8 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     needs: build
-    if: github.ref == 'refs/heads/develop'
+    # 仅在推 develop 且已配置 STAGING_HOST 时执行; 未配 secret 则跳过 (neutral, 不标红)
+    if: github.ref == 'refs/heads/develop' && secrets.STAGING_HOST != ''
     runs-on: ubuntu-latest
     environment: staging
     steps:
@@ -152,7 +153,8 @@ jobs:
   deploy-production:
     name: Deploy to Production
     needs: build
-    if: github.ref == 'refs/heads/main'
+    # 仅在推 main 且已配置 PROD_HOST 时执行; 未配 secret 则跳过 (neutral, 不标红)
+    if: github.ref == 'refs/heads/main' && secrets.PROD_HOST != ''
     runs-on: ubuntu-latest
     environment: production
     steps:
