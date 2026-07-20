@@ -13,7 +13,63 @@ from fund_estimation_system.visualization.web_server import (
     estimator, risk_analyzer, report_gen, tdx_realtime,
 )
 
-bp = Blueprint("fund", __name__)
+bp = Blueprint("fund", "__name__")
+
+# 内置常见标的字典：当 Tushare / 本地通达信数据缺失时，为 /api/fund/search 提供兜底。
+# 仅静态「代码-名称」映射，不含任何行情/净值数据，不违背「无数据不捏造」原则。
+BUILTIN_FUNDS = [
+    # 宽基 ETF
+    {"code": "510300.SH", "name": "华泰柏瑞沪深300ETF", "kind": "基金", "detail": "宽基指数 · 华泰柏瑞", "market": "E"},
+    {"code": "510330.SH", "name": "华夏沪深300ETF", "kind": "基金", "detail": "宽基指数 · 华夏基金", "market": "E"},
+    {"code": "159919.SZ", "name": "嘉实沪深300ETF", "kind": "基金", "detail": "宽基指数 · 嘉实基金", "market": "SZ"},
+    {"code": "510500.SH", "name": "南方中证500ETF", "kind": "基金", "detail": "宽基指数 · 南方基金", "market": "E"},
+    {"code": "161017", "name": "富国中证500指数增强", "kind": "基金", "detail": "宽基指数增强 · 富国", "market": "E"},
+    {"code": "159915.SZ", "name": "易方达创业板ETF", "kind": "基金", "detail": "宽基指数 · 易方达", "market": "SZ"},
+    {"code": "510050.SH", "name": "华夏上证50ETF", "kind": "基金", "detail": "宽基指数 · 华夏基金", "market": "E"},
+    {"code": "110003", "name": "易方达上证50增强", "kind": "基金", "detail": "宽基增强 · 易方达", "market": "E"},
+    {"code": "588000.SH", "name": "华夏科创50ETF", "kind": "基金", "detail": "科创板 · 华夏基金", "market": "E"},
+    {"code": "159901.SZ", "name": "易方达深证100ETF", "kind": "基金", "detail": "宽基指数 · 易方达", "market": "SZ"},
+    # 行业 / 主题
+    {"code": "161725", "name": "招商中证白酒指数", "kind": "基金", "detail": "行业指数 · 招商基金", "market": "E"},
+    {"code": "012348", "name": "天弘中证食品饮料", "kind": "基金", "detail": "行业指数 · 天弘", "market": "E"},
+    {"code": "003096", "name": "中欧医疗健康混合", "kind": "基金", "detail": "医药 · 中欧", "market": "E"},
+    {"code": "011609", "name": "国泰中证动漫游戏ETF联接", "kind": "基金", "detail": "行业指数 · 国泰", "market": "E"},
+    {"code": "161028", "name": "富国中证新能源汽车", "kind": "基金", "detail": "行业指数 · 富国", "market": "E"},
+    {"code": "270042", "name": "广发纳斯达克100指数", "kind": "基金", "detail": "QDII · 广发", "market": "E"},
+    {"code": "000834", "name": "大成纳斯达克100", "kind": "基金", "detail": "QDII · 大成", "market": "E"},
+    {"code": "161130", "name": "易方达标普500", "kind": "基金", "detail": "QDII · 易方达", "market": "E"},
+    # 热门主动 / 混合
+    {"code": "110011", "name": "易方达中小盘混合", "kind": "基金", "detail": "混合型 · 易方达", "market": "E"},
+    {"code": "005827", "name": "易方达蓝筹精选混合", "kind": "基金", "detail": "混合型 · 易方达", "market": "E"},
+    {"code": "163406", "name": "兴全合润混合", "kind": "基金", "detail": "混合型 · 兴证全球", "market": "E"},
+    {"code": "260108", "name": "景顺长城新兴成长混合", "kind": "基金", "detail": "混合型 · 景顺", "market": "E"},
+    {"code": "000001", "name": "华夏成长混合", "kind": "基金", "detail": "混合型 · 华夏基金", "market": "E"},
+    {"code": "320007", "name": "诺安成长混合", "kind": "基金", "detail": "混合型 · 诺安基金", "market": "E"},
+    {"code": "519066", "name": "汇添富蓝筹稳健混合", "kind": "基金", "detail": "混合型 · 汇添富", "market": "E"},
+    # 债券 / 稳健
+    {"code": "050011", "name": "博时信用债券", "kind": "基金", "detail": "债券型 · 博时", "market": "E"},
+    {"code": "100018", "name": "富国天利增长债券", "kind": "基金", "detail": "债券型 · 富国", "market": "E"},
+]
+BUILTIN_STOCKS = [
+    {"code": "600519.SH", "name": "贵州茅台", "kind": "股票", "detail": "白酒 · 上交所", "market": "CN"},
+    {"code": "000858.SZ", "name": "五粮液", "kind": "股票", "detail": "白酒 · 深交所", "market": "CN"},
+    {"code": "601318.SH", "name": "中国平安", "kind": "股票", "detail": "保险 · 上交所", "market": "CN"},
+    {"code": "600036.SH", "name": "招商银行", "kind": "股票", "detail": "银行 · 上交所", "market": "CN"},
+    {"code": "000001.SZ", "name": "平安银行", "kind": "股票", "detail": "银行 · 深交所", "market": "CN"},
+    {"code": "600276.SH", "name": "恒瑞医药", "kind": "股票", "detail": "医药 · 上交所", "market": "CN"},
+    {"code": "601012.SH", "name": "隆基绿能", "kind": "股票", "detail": "光伏 · 上交所", "market": "CN"},
+    {"code": "600887.SH", "name": "伊利股份", "kind": "股票", "detail": "食品饮料 · 上交所", "market": "CN"},
+    {"code": "000333.SZ", "name": "美的集团", "kind": "股票", "detail": "家电 · 深交所", "market": "CN"},
+    {"code": "000651.SZ", "name": "格力电器", "kind": "股票", "detail": "家电 · 深交所", "market": "CN"},
+    {"code": "300750.SZ", "name": "宁德时代", "kind": "股票", "detail": "新能源 · 创业板", "market": "CN"},
+    {"code": "002594.SZ", "name": "比亚迪", "kind": "股票", "detail": "新能源 · 深交所", "market": "CN"},
+    {"code": "600900.SH", "name": "长江电力", "kind": "股票", "detail": "电力 · 上交所", "market": "CN"},
+    {"code": "601899.SH", "name": "紫金矿业", "kind": "股票", "detail": "有色金属 · 上交所", "market": "CN"},
+    {"code": "600030.SH", "name": "中信证券", "kind": "股票", "detail": "券商 · 上交所", "market": "CN"},
+    {"code": "000725.SZ", "name": "京东方A", "kind": "股票", "detail": "面板 · 深交所", "market": "CN"},
+    {"code": "300059.SZ", "name": "东方财富", "kind": "股票", "detail": "券商 · 创业板", "market": "CN"},
+    {"code": "688981.SH", "name": "中芯国际", "kind": "股票", "detail": "半导体 · 科创板", "market": "CN"},
+]
 
 
 @bp.route("/api/fund/estimate", methods=["POST"])
@@ -94,6 +150,22 @@ def api_fund_search():
         return jsonify({"results": [], "count": 0})
     ql = q.lower()
     results = []
+
+    def _match(items):
+        out = []
+        for it in items:
+            code = str(it.get("code", ""))
+            name = str(it.get("name", ""))
+            if ql in code.lower() or ql in name.lower():
+                out.append({
+                    "code": code,
+                    "name": name,
+                    "kind": it.get("kind", "基金"),
+                    "detail": it.get("detail", ""),
+                    "market": it.get("market", market),
+                })
+        return out
+
     if scope in ("all", "fund"):
         fl = estimator.ts_client.get_fund_list(market=market)
         if fl is not None and not fl.empty:
@@ -103,6 +175,12 @@ def api_fund_search():
                     results.append({"code": code, "name": name, "kind": "基金",
                                     "detail": f"{row.get('fund_type', '')} · {row.get('management', '')}",
                                     "market": row.get("market", market)})
+        # 始终以内置字典补充（兜底 + 本地索引补全），去重后追加，提升搜索鲁棒性
+        seen = {r["code"] for r in results}
+        for it in _match(BUILTIN_FUNDS):
+            if it["code"] not in seen:
+                results.append(it)
+                seen.add(it["code"])
     if scope in ("all", "stock"):
         sl = estimator.ts_client.get_stock_list()
         if sl is not None and not sl.empty:
@@ -112,6 +190,11 @@ def api_fund_search():
                     results.append({"code": code, "name": name, "kind": "股票",
                                     "detail": f"{row.get('industry', '')} · {row.get('market', '')}",
                                     "market": "CN"})
+        seen = {r["code"] for r in results}
+        for it in _match(BUILTIN_STOCKS):
+            if it["code"] not in seen:
+                results.append(it)
+                seen.add(it["code"])
     return jsonify({"query": q, "results": results[:20], "count": len(results[:20])})
 
 

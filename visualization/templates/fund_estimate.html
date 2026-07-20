@@ -402,7 +402,14 @@ function searchFunds(query) {
             const data = await res.json();
 
             if (data.results && data.results.length > 0) {
-                showSearchResults(data.results);
+                const q = query.trim().toUpperCase();
+                const exact = data.results.find(r => (r.code || '').toUpperCase() === q);
+                // 输入与某条结果精确匹配（且唯一）时，自动填充代码与名称，无需点选下拉
+                if (exact && data.results.length === 1) {
+                    selectFund(exact.code, exact.name);
+                } else {
+                    showSearchResults(data.results);
+                }
             } else {
                 hideSearchResults();
             }
