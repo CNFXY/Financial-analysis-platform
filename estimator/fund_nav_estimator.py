@@ -6,9 +6,8 @@ from datetime import datetime, timedelta
 
 from fund_estimation_system.data_fetcher.tushare_client import TushareClient
 from fund_estimation_system.data_fetcher.yahoo_client import YahooClient
-
-
 from fund_estimation_system.data_fetcher.tdx_data_reader import TdxDataReader
+from fund_estimation_system.data_fetcher.tdx_realtime import TdxRealtimeClient
 
 
 class FundNavEstimator:
@@ -29,6 +28,7 @@ class FundNavEstimator:
         self.ts_client = TushareClient(token=tushare_token)
         self.yh_client = YahooClient()
         self.tdx_reader = TdxDataReader()
+        self.tdx_realtime = TdxRealtimeClient()
     
     def _get_nav_data(self, fund_code, fund_type="cn", days=20):
         """获取净值数据，支持多数据源回退
@@ -374,7 +374,45 @@ class FundNavEstimator:
             "estimated_nav_change_pct": round(total_contribution * 100, 4),
             "breakdown": breakdown,
         }
-    
+
+    def estimate_by_realtime(self, fund_code, fund_type="cn"):
+        """基于通达信实时行情估算当日涨跌（无 Tushare 权限/无历史净值时的真实数据回退）
+
+        对场内 ETF/LOF 及部分场外指数基金，pytdx 直连行情服务器可返回真实盘中
+        价与昨收，用 (price - last_close) / last_close 计算真实当日涨跌幅。
+        全部为真实数据，取不到时如实返回 available=False，绝不捏造。
+        """
+        code = (fund_code or "").upper()
+        for suf in (".SH", ".SZ", ".OF", ".BJ"):
+            code = code.replace(suf, "")
+        try:
+            q = self.tdx_realtime.get_single_quote(code)
+        except Exception:
+            return {"available": False, "source": "tdx_realtime"}
+        if not q or not q.get("price"):
+            return {"available": False, "source": "tdx_realtime"}
+        try:
+            price = float(q.get("price") or 0)
+            last = float(q.get("last_close") or 0)
+        except (TypeError, ValueError):
+            return {"available": False, "source": "tdx_realtime"}
+        if last and last > 0:
+            change_pct = (price - last) / last * 100
+        else:
+            change_pct = 0.0
+        trend = "up" if change_pct > 0 else "down" if change_pct < 0 else "flat"
+        return {
+            "available": True,
+            "realtime": True,
+            "source": "tdx_realtime",
+            "name": q.get("name"),
+            "estimated_nav": round(price, 4),
+            "last_nav": round(last, 4),
+            "change_pct": round(change_pct, 4),
+            "confidence": 0.6,
+            "trend": trend,
+        }
+
     def estimate_fund(self, fund_code, fund_type="cn", method="ma", 
                      stock_changes=None, days=20):
         """综合估算基金净值
@@ -425,7 +463,25 @@ class FundNavEstimator:
             trend_result = self.estimate_by_trend(nav_df, method=method, days=min(days, 20))
         
         result["methods"]["trend"] = trend_result
-        
+
+        # 2.5 实时行情回退：无历史净值（本地无数据 / Tushare 权限不足）时，
+        # 用通达信实时行情给出真实盘中涨跌估算（全部为真实数据，不捏造）
+        if trend_result.get("estimated_nav") is None:
+            rt = self.estimate_by_realtime(fund_code, fund_type=fund_type)
+            if rt.get("available"):
+                result["methods"]["realtime"] = rt
+                result["combined_change_pct"] = rt["change_pct"]
+                result["estimated_nav"] = rt["estimated_nav"]
+                result["is_realtime"] = True
+                result["methods"]["trend"].update({
+                    "estimated_nav": rt["estimated_nav"],
+                    "last_nav": rt["last_nav"],
+                    "trend": rt["trend"],
+                    "confidence": rt["confidence"],
+                    "change_pct": rt["change_pct"],
+                })
+                return result
+
         # 3. 持仓法估算（仅CN基金）
         if fund_type == "cn" and stock_changes:
             holding_result = self.estimate_by_holdings(fund_code, stock_changes)
