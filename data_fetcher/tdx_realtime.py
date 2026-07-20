@@ -18,6 +18,8 @@ import time
 import threading
 from datetime import datetime, date
 
+from fund_estimation_system.data_fetcher.fund_code_index import as_known_funds
+
 try:
     from pytdx.hq import TdxHq_API
     from pytdx.params import TDXParams
@@ -736,7 +738,7 @@ class TdxRealtimeClient(QuoteProvider):
         seen = seen if seen is not None else set()
         for q in queries:
             qk = str(q).strip().upper()
-            for code, name, mkt, kind in self._KNOWN_FUNDS:
+            for code, name, mkt, kind in (self._KNOWN_FUNDS + EXTRA_KNOWN_FUNDS):
                 if by_code:
                     hit = (qk == code or (qk and code.startswith(qk)))
                 else:
@@ -825,6 +827,8 @@ class TdxRealtimeClient(QuoteProvider):
         ("161028", "富国中证煤炭", "深圳", "LOF"), ("160632", "鹏华酒", "深圳", "LOF"),
         ("161226", "国投瑞银白银", "深圳", "LOF"),
     ]
+    # 证券之星全量基金代码兜底（离线抓取，覆盖更广；无 Tushare 权限时也能搜到）
+    EXTRA_KNOWN_FUNDS = as_known_funds()
 
     def _known_name(self, code):
         c = str(code).replace(".SH", "").replace(".SZ", "").replace(".BJ", "")

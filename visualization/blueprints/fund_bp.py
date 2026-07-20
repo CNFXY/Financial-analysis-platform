@@ -15,6 +15,8 @@ from fund_estimation_system.visualization.web_server import (
 
 bp = Blueprint("fund", "__name__")
 
+from fund_estimation_system.data_fetcher.fund_code_index import as_builtin_funds
+
 # 内置常见标的字典：当 Tushare / 本地通达信数据缺失时，为 /api/fund/search 提供兜底。
 # 仅静态「代码-名称」映射，不含任何行情/净值数据，不违背「无数据不捏造」原则。
 BUILTIN_FUNDS = [
@@ -50,6 +52,10 @@ BUILTIN_FUNDS = [
     {"code": "050011", "name": "博时信用债券", "kind": "基金", "detail": "债券型 · 博时", "market": "E"},
     {"code": "100018", "name": "富国天利增长债券", "kind": "基金", "detail": "债券型 · 富国", "market": "E"},
 ]
+
+# 证券之星全量基金代码兜底（离线抓取，覆盖更广；无 Tushare 权限时也能搜到）
+EXTRA_FUNDS = as_builtin_funds()
+
 BUILTIN_STOCKS = [
     {"code": "600519.SH", "name": "贵州茅台", "kind": "股票", "detail": "白酒 · 上交所", "market": "CN"},
     {"code": "000858.SZ", "name": "五粮液", "kind": "股票", "detail": "白酒 · 深交所", "market": "CN"},
@@ -178,6 +184,11 @@ def api_fund_search():
         # 始终以内置字典补充（兜底 + 本地索引补全），去重后追加，提升搜索鲁棒性
         seen = {r["code"] for r in results}
         for it in _match(BUILTIN_FUNDS):
+            if it["code"] not in seen:
+                results.append(it)
+                seen.add(it["code"])
+        # 再补充证券之星全量基金代码兜底（覆盖更广，同样去重）
+        for it in _match(EXTRA_FUNDS):
             if it["code"] not in seen:
                 results.append(it)
                 seen.add(it["code"])
